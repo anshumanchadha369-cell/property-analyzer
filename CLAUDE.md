@@ -7,6 +7,7 @@ Personal web app: quick investment analysis for multi-unit (2-4 unit) properties
 - `backend/` — FastAPI (Python 3.11). API orchestration (`asyncio.gather` with per-source graceful degradation), URL parsers, calculation engine (pure functions, pytest-covered).
 - `frontend/` — React + Vite + Tailwind v4 (via `@tailwindcss/vite` plugin, no tailwind.config). Client-side calculator so sensitivity sliders update instantly with no API calls. IndexedDB (Dexie) local-first storage, Supabase background sync.
 - Deploy: Render (backend, see `render.yaml`) + Vercel (frontend, project root = `frontend/`). Free tiers; Render free tier cold-starts after idle (~30-50s, accepted for POC).
+- Live URLs: frontend https://property-analyzer-nine.vercel.app, backend https://property-analyzer-api.onrender.com. GitHub: anshumanchadha369-cell/property-analyzer (public). Both auto-deploy on push to `main`. Render env var `ALLOWED_ORIGINS` must list the Vercel origin; Vercel env var `VITE_API_URL` points at the Render URL.
 
 ## Data sources (all free tier / official)
 
@@ -21,9 +22,13 @@ RentCast is primary (property details, AVM, rent estimates, comps — 50 calls/m
 
 ## Development approach
 
+RentCast usage/cost tracking: no usage API exists, so calls are tallied client-side (localStorage, authoritative per-device) + server-memory (best effort), reconciled by max. Quota facts in `backend/app/services/usage.py`: 50 calls/period, $0.20/call overage (card on file), billing cycle renews the 8th. Each analysis = 3 calls. UI badge warns at 80% and prices the next analysis when it would exceed the free tier.
+
+Known data limitation (found in first live run): RentCast matches plain street addresses to a single record — a multi-unit building listed as "#D1-D6" came back as a Single Family 2/1. Phase 2 must include manual overrides (price, rent, unit count) so listing knowledge can correct AVM mismatches.
+
 Incremental, working-to-working phases — each ends deployed and usable:
-0. Infra skeleton (done when: frontend on Vercel talks to backend on Render)
-1. Core analysis with RentCast only
+0. Infra skeleton (done when: frontend on Vercel talks to backend on Render) — DONE
+1. Core analysis with RentCast only — DONE (live-verified 2026-07-08)
 2. Cash deployment calculator (client-side)
 3. Persistence (IndexedDB + Supabase sync)
 4. Additional data APIs, one at a time (HUD → FEMA → Census → FRED/BLS → Walk Score → GreatSchools)

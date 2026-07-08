@@ -3,7 +3,10 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI(title="Property Analyzer API", version="0.1.0")
+from app import config  # noqa: F401  (loads .env before reading os.environ)
+from app.routers import analyze
+
+app = FastAPI(title="Property Analyzer API", version="0.2.0")
 
 # Comma-separated origins; defaults cover local dev. Set ALLOWED_ORIGINS on
 # Render to include the deployed Vercel URL.
@@ -18,6 +21,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(analyze.router)
 
 
 @app.get("/health")
