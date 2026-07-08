@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import AddressForm from './components/AddressForm'
 import AnalysisView, { type SavePayload } from './components/AnalysisView'
+import ComparisonView from './components/ComparisonView'
 import SavedList from './components/SavedList'
 import UsageBadge from './components/UsageBadge'
 import { analyzeAddress, fetchUsage } from './lib/api'
@@ -36,6 +37,7 @@ export default function App() {
   const [state, setState] = useState<AnalyzeState>({ status: 'idle' })
   const [tab, setTab] = useState<Tab>('analyze')
   const [saved, setSaved] = useState<SavedAnalysis[]>([])
+  const [comparing, setComparing] = useState<SavedAnalysis[] | null>(null)
   const [usage, setUsage] = useState<UsageState>(() => loadUsage())
   const [mockMode, setMockMode] = useState(false)
   const [theme, setThemeState] = useState<Theme>(() => currentTheme())
@@ -258,6 +260,8 @@ export default function App() {
               )}
             </div>
           </>
+        ) : comparing ? (
+          <ComparisonView records={comparing} onBack={() => setComparing(null)} />
         ) : (
           <SavedList
             records={saved}
@@ -265,6 +269,7 @@ export default function App() {
             onLoad={handleLoad}
             onRefetch={handleRefetch}
             onDelete={handleDelete}
+            onCompare={setComparing}
           />
         )}
       </div>
