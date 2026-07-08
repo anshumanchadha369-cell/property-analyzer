@@ -127,6 +127,35 @@ def fema_flood(request: Request):
     }
 
 
+# ---- Listing page (for /parse-url E2E; requires PARSE_URL_EXTRA_HOST=localhost) ----
+
+
+LISTING_HTML = """
+<!doctype html><html><head>
+<meta property="og:title" content="1234 S Ainsworth Ave, Tacoma, WA 98405 | Zillow" />
+<script type="application/ld+json">
+{
+  "@type": "SingleFamilyResidence",
+  "address": {
+    "streetAddress": "1234 S Ainsworth Ave",
+    "addressLocality": "Tacoma",
+    "addressRegion": "WA",
+    "postalCode": "98405"
+  },
+  "offers": {"price": "750000"}
+}
+</script>
+</head><body>mock listing page</body></html>
+"""
+
+
+@app.get("/listing-fixture")
+def listing_fixture():
+    from fastapi.responses import HTMLResponse
+
+    return HTMLResponse(LISTING_HTML)
+
+
 # ---- Census ACS ----
 
 

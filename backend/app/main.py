@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config  # noqa: F401  (loads .env before reading os.environ)
-from app.routers import analyses, analyze
+from app.routers import analyses, analyze, parse_url
 
 app = FastAPI(title="Property Analyzer API", version="0.2.0")
 
@@ -25,6 +25,7 @@ app.add_middleware(
 
 app.include_router(analyze.router)
 app.include_router(analyses.router)
+app.include_router(parse_url.router)
 
 
 @app.get("/health")

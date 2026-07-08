@@ -25,3 +25,6 @@ FEMA_NFHL_BASE_URL = os.environ.get(
     "FEMA_NFHL_BASE_URL",
     "https://hazards.fema.gov/arcgis/rest/services/public/NFHL/MapServer",
 )  # no key required
+
+# Extra host allowed for /parse-url (mock-mode E2E only, e.g. "localhost").
+PARSE_URL_EXTRA_HOST = os.environ.get("PARSE_URL_EXTRA_HOST", "")

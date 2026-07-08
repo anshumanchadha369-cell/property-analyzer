@@ -4,7 +4,8 @@ import AnalysisView, { type SavePayload } from './components/AnalysisView'
 import ComparisonView from './components/ComparisonView'
 import SavedList from './components/SavedList'
 import UsageBadge from './components/UsageBadge'
-import { analyzeAddress, fetchUsage } from './lib/api'
+import { analyzeAddress, fetchUsage, parseListingUrl } from './lib/api'
+import { EMPTY_OVERRIDES, type DealSettings, type Overrides } from './lib/deal-math'
 import {
   deleteSaved,
   listSaved,
@@ -27,7 +28,7 @@ type AnalyzeState =
       status: 'done'
       result: AnalysisResult
       savedId: string | null
-      initial?: Pick<SavedAnalysis, 'overrides' | 'settings'>
+      initial?: { overrides?: Overrides; settings?: DealSettings }
     }
   | { status: 'error'; message: string }
 
@@ -75,11 +76,30 @@ export default function App() {
     return result
   }
 
-  async function run(address: string) {
-    setState({ status: 'loading', address })
+  async function run(input: string) {
+    const isUrl = /^https?:\/\//i.test(input)
+    setState({ status: 'loading', address: isUrl ? 'the listing page' : input })
     try {
+      let address = input
+      let priceHint: number | null = null
+      if (isUrl) {
+        const parsed = await parseListingUrl(input)
+        if (!parsed.address) {
+          throw new Error(
+            'Could not extract an address from that listing page — enter the address manually.',
+          )
+        }
+        address = parsed.address
+        priceHint = parsed.listingPrice
+        setState({ status: 'loading', address })
+      }
       const result = await performAnalysis(address)
-      setState({ status: 'done', result, savedId: null })
+      setState({
+        status: 'done',
+        result,
+        savedId: null,
+        initial: priceHint ? { overrides: { ...EMPTY_OVERRIDES, price: priceHint } } : undefined,
+      })
     } catch (err) {
       setState({ status: 'error', message: err instanceof Error ? err.message : String(err) })
     }

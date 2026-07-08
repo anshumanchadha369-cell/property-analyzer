@@ -12,6 +12,25 @@ export async function fetchUsage(): Promise<UsageInfo | null> {
   }
 }
 
+export interface ParsedListing {
+  host: string
+  address: string | null
+  listingPrice: number | null
+}
+
+export async function parseListingUrl(url: string): Promise<ParsedListing> {
+  const res = await fetch(`${API_URL}/parse-url`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  })
+  const body = await res.json()
+  if (!res.ok) {
+    throw new Error(body.detail ?? `Listing parse failed (${res.status})`)
+  }
+  return body
+}
+
 export async function analyzeAddress(address: string): Promise<AnalysisResult> {
   const res = await fetch(`${API_URL}/analyze`, {
     method: 'POST',
