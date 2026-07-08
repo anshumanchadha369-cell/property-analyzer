@@ -15,11 +15,15 @@ type ViewState =
 export default function App() {
   const [state, setState] = useState<ViewState>({ status: 'idle' })
   const [usage, setUsage] = useState<UsageState>(() => loadUsage())
+  const [mockMode, setMockMode] = useState(false)
 
   useEffect(() => {
     // Server tally is best-effort (resets on restart); take the max.
     fetchUsage().then((server) => {
-      if (server) setUsage(reconcile(server.callsThisPeriod))
+      if (server) {
+        setUsage(reconcile(server.callsThisPeriod))
+        setMockMode(server.mockMode ?? false)
+      }
     })
   }, [])
 
@@ -29,6 +33,7 @@ export default function App() {
       const result = await analyzeAddress(address)
       const calls = result.meta.usage?.callsThisRequest ?? 0
       if (calls > 0) setUsage(recordCalls(calls))
+      setMockMode(result.meta.usage?.mockMode ?? false)
       setState({ status: 'done', result })
     } catch (err) {
       setState({
@@ -49,7 +54,17 @@ export default function App() {
                 Multi-unit investment snapshot from a single address.
               </p>
             </div>
-            <UsageBadge calls={usage.calls} />
+            <div className="flex flex-col items-end gap-2">
+              <UsageBadge calls={usage.calls} />
+              {mockMode ? (
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-1.5 text-xs font-semibold text-amber-300"
+                  title="The backend is pointed at the local mock RentCast server. No live API calls are made and nothing counts against your quota."
+                >
+                  ⚠ MOCK DATA — no API quota used
+                </span>
+              ) : null}
+            </div>
           </div>
         </header>
 

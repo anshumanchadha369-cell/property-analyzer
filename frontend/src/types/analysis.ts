@@ -76,6 +76,7 @@ export interface UsageInfo {
   overagePerCall: number
   tallySource: string
   callsThisRequest?: number
+  mockMode?: boolean
 }
 
 export interface AnalysisMeta {

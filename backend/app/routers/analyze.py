@@ -164,11 +164,18 @@ async def analyze(req: AnalyzeRequest) -> dict:
             "sources": sources,
             "metricsAvailable": metrics is not None,
             "metricsUnavailableReason": metrics_unavailable_reason,
-            "usage": {**usage.snapshot(), "callsThisRequest": billable_calls},
+            "usage": {
+                **usage.snapshot(),
+                "callsThisRequest": billable_calls,
+                "mockMode": not is_live,
+            },
         },
     }
 
 
 @router.get("/usage")
 def get_usage() -> dict:
-    return usage.snapshot()
+    return {
+        **usage.snapshot(),
+        "mockMode": config.RENTCAST_BASE_URL != LIVE_RENTCAST_URL,
+    }

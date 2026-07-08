@@ -119,7 +119,7 @@ def test_analyze_rejects_too_short_address():
     assert resp.status_code == 422
 
 
-def test_mock_mode_spends_no_quota(monkeypatch):
+def test_mock_mode_spends_no_quota_and_is_flagged(monkeypatch):
     from app import config
 
     monkeypatch.setattr(config, "RENTCAST_BASE_URL", "http://localhost:9100")
@@ -129,3 +129,14 @@ def test_mock_mode_spends_no_quota(monkeypatch):
     body = resp.json()
     assert body["meta"]["usage"]["callsThisRequest"] == 0
     assert body["meta"]["usage"]["callsThisPeriod"] == 0
+    assert body["meta"]["usage"]["mockMode"] is True
+
+    usage_resp = client.get("/usage")
+    assert usage_resp.json()["mockMode"] is True
+
+
+def test_live_mode_not_flagged_as_mock(monkeypatch):
+    _patch_sources(monkeypatch)
+    resp = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"})
+    assert resp.json()["meta"]["usage"]["mockMode"] is False
+    assert client.get("/usage").json()["mockMode"] is False
