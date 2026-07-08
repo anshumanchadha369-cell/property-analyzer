@@ -20,6 +20,10 @@ RentCast is primary (property details, AVM, rent estimates, comps — 50 calls/m
 - One analysis = one JSON snapshot. Saved analyses reload with zero API calls. Comparison view reads saved data only.
 - Metrics: NOI, cap rate, CoC, DSCR, GRM, 1% rule, break-even months, cash-deployment breakdown (down payment, closing, rehab, reserves, undeployed remainder), HYSA opportunity-cost comparison.
 
+## Testing policy — protect the API quota (user directive, 2026-07-08)
+
+NEVER burn live RentCast calls in tests or routine dev verification — the 50-call/month quota is reserved for the user's real analyses. Unit tests mock at the service/transport layer (monkeypatch or httpx.MockTransport). Browser/E2E verification runs against `backend/mock_rentcast.py` (port 9100) with `RENTCAST_BASE_URL=http://localhost:9100`. Live RentCast calls happen ONLY with the user's explicit approval, typically a single user-chosen address at a phase boundary. Apply the same fixture-first approach to every future data source.
+
 ## Development approach
 
 RentCast usage/cost tracking: no usage API exists, so calls are tallied client-side (localStorage, authoritative per-device) + server-memory (best effort), reconciled by max. Quota facts in `backend/app/services/usage.py`: 50 calls/period, $0.20/call overage (card on file), billing cycle renews the 8th. Each analysis = 3 calls. UI badge warns at 80% and prices the next analysis when it would exceed the free tier.

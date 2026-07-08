@@ -38,6 +38,21 @@ npm run dev
 
 The frontend reads `VITE_API_URL` (defaults to `http://localhost:8000`).
 
+### Mock mode (no API quota usage)
+
+For dev/testing without spending RentCast calls, run the bundled mock and point the backend at it:
+
+```
+# terminal 1 — mock RentCast on :9100
+cd backend
+.venv\Scripts\python -m uvicorn mock_rentcast:app --port 9100
+
+# terminal 2 — backend using the mock
+cd backend
+$env:RENTCAST_BASE_URL='http://localhost:9100'; $env:RENTCAST_API_KEY='mock-key'
+.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+```
+
 ## Deployment
 
 - **Backend → Render**: `render.yaml` at repo root defines the service (rootDir `backend`). Set the `ALLOWED_ORIGINS` env var to the deployed frontend URL.
