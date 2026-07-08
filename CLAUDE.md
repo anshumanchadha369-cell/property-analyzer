@@ -30,11 +30,16 @@ RentCast usage/cost tracking: no usage API exists, so calls are tallied client-s
 
 Known data limitation (found in first live run): RentCast matches plain street addresses to a single record — a multi-unit building listed as "#D1-D6" came back as a Single Family 2/1. Phase 2 must include manual overrides (price, rent, unit count) so listing knowledge can correct AVM mismatches.
 
+ALL v1 PHASES COMPLETE (2026-07-08). Remaining backlog: Walk Score + GreatSchools + FRED/BLS integrations (same source pattern as hud.py/census.py — add client, fixture tests, MarketContext section, env key); Supabase sync activation (user-gated); Nominatim address autocomplete; portfolio-level features (v2).
+
 Incremental, working-to-working phases — each ends deployed and usable:
 0. Infra skeleton (done when: frontend on Vercel talks to backend on Render) — DONE
 1. Core analysis with RentCast only — DONE (live-verified 2026-07-08)
 2. Cash deployment calculator + manual overrides — DONE (2026-07-08; TS mirror of tested Python math in frontend/src/lib/deal-math.ts, keep in sync with backend/app/calculations/)
 3. Persistence — DONE (2026-07-08). Local-first: IndexedDB (Dexie, frontend/src/lib/db.ts) is primary; saved analyses load with ZERO API calls. Supabase sync is optional and goes through backend /analyses endpoints (service key server-side only; endpoints report configured:false until SUPABASE_URL + SUPABASE_SERVICE_KEY are set on Render — table SQL in app/services/supabase_store.py docstring). Records: {id, address, savedAt, updatedAt, result snapshot, overrides, settings, summary}; merge strategy last-write-wins by updatedAt. Re-fetch from saved list costs 3 calls and asks confirm().
+4. Supplemental sources — DONE (2026-07-08): HUD FMR (annual, HUD_API_TOKEN), FEMA NFHL flood (live, keyless), Census ACS 5-yr (annual, CENSUS_API_KEY). Each has ok/no_data/error/not_configured status; only rentcast_* calls are metered.
+5. URL parsing — DONE (2026-07-08): POST /parse-url, host allowlist (zillow/redfin/realtor + PARSE_URL_EXTRA_HOST for mock E2E), JSON-LD → meta fallback, listing price auto-applied as manual price override.
+6. Comparison + polish — DONE (2026-07-08): saved-list checkboxes → side-by-side table (scrolls inside container on mobile), staged LoadingCard progress, light/dark toggle, mock-mode pill. Mobile verified at 375px: no body overflow on any view.
 2. Cash deployment calculator (client-side)
 3. Persistence (IndexedDB + Supabase sync)
 4. Additional data APIs, one at a time (HUD → FEMA → Census → FRED/BLS → Walk Score → GreatSchools)

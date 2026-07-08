@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import AddressForm from './components/AddressForm'
 import AnalysisView, { type SavePayload } from './components/AnalysisView'
 import ComparisonView from './components/ComparisonView'
+import LoadingCard from './components/LoadingCard'
 import SavedList from './components/SavedList'
 import UsageBadge from './components/UsageBadge'
 import { analyzeAddress, fetchUsage, parseListingUrl } from './lib/api'
@@ -252,14 +253,7 @@ export default function App() {
                   Enter an address to fetch property records, value estimate, and market rent.
                 </p>
               )}
-              {state.status === 'loading' && (
-                <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-                  <p className="animate-pulse text-slate-600 dark:text-slate-300">
-                    Analyzing {state.address} — fetching property records, value estimate, rent
-                    estimate…
-                  </p>
-                </div>
-              )}
+              {state.status === 'loading' && <LoadingCard address={state.address} />}
               {state.status === 'error' && (
                 <div className="rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-950/30">
                   <p className="text-red-700 dark:text-red-300">{state.message}</p>
