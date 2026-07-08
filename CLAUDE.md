@@ -33,6 +33,7 @@ Known data limitation (found in first live run): RentCast matches plain street a
 Incremental, working-to-working phases — each ends deployed and usable:
 0. Infra skeleton (done when: frontend on Vercel talks to backend on Render) — DONE
 1. Core analysis with RentCast only — DONE (live-verified 2026-07-08)
+2. Cash deployment calculator + manual overrides — DONE (2026-07-08; TS mirror of tested Python math in frontend/src/lib/deal-math.ts, keep in sync with backend/app/calculations/)
 2. Cash deployment calculator (client-side)
 3. Persistence (IndexedDB + Supabase sync)
 4. Additional data APIs, one at a time (HUD → FEMA → Census → FRED/BLS → Walk Score → GreatSchools)

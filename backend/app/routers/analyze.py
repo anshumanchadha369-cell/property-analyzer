@@ -10,10 +10,13 @@ from datetime import datetime, timezone
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
+from app import config
 from app.calculations import investment_metrics as calc
 from app.services import rentcast, usage
 
 router = APIRouter()
+
+LIVE_RENTCAST_URL = "https://api.rentcast.io/v1"
 
 MAX_COMPARABLES = 5
 
@@ -96,9 +99,16 @@ async def analyze(req: AnalyzeRequest) -> dict:
     rent = unwrap("rentcast_rent", rent_result)
 
     # RentCast bills successful requests; errors don't count against quota.
-    # no_data responses (404) are counted conservatively.
-    billable_calls = sum(1 for s in sources.values() if s["status"] in ("ok", "no_data"))
-    usage.record(billable_calls)
+    # no_data responses (404) are counted conservatively. Mock mode (base URL
+    # overridden for testing) spends no real quota, so nothing is recorded.
+    is_live = config.RENTCAST_BASE_URL == LIVE_RENTCAST_URL
+    billable_calls = (
+        sum(1 for s in sources.values() if s["status"] in ("ok", "no_data"))
+        if is_live
+        else 0
+    )
+    if billable_calls:
+        usage.record(billable_calls)
 
     property_section = _map_property(prop) if prop else None
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import AddressForm from './components/AddressForm'
-import AnalysisDashboard from './components/AnalysisDashboard'
+import AnalysisView from './components/AnalysisView'
 import UsageBadge from './components/UsageBadge'
 import { analyzeAddress, fetchUsage } from './lib/api'
 import { loadUsage, recordCalls, reconcile, type UsageState } from './lib/usage'
@@ -77,7 +77,7 @@ export default function App() {
               </p>
             </div>
           )}
-          {state.status === 'done' && <AnalysisDashboard result={state.result} />}
+          {state.status === 'done' && <AnalysisView result={state.result} />}
         </div>
       </div>
     </main>

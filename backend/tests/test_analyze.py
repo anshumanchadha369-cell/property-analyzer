@@ -117,3 +117,15 @@ def test_analyze_missing_property_still_computes_metrics(monkeypatch):
 def test_analyze_rejects_too_short_address():
     resp = client.post("/analyze", json={"address": "abc"})
     assert resp.status_code == 422
+
+
+def test_mock_mode_spends_no_quota(monkeypatch):
+    from app import config
+
+    monkeypatch.setattr(config, "RENTCAST_BASE_URL", "http://localhost:9100")
+    _patch_sources(monkeypatch)
+    resp = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["meta"]["usage"]["callsThisRequest"] == 0
+    assert body["meta"]["usage"]["callsThisPeriod"] == 0
