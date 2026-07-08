@@ -100,6 +100,7 @@ export default function AnalysisView({
         result={result}
         metrics={operating ?? result.metrics}
         overridesActive={overridesActive}
+        effectiveUnitCount={base.unitCount}
       />
     </div>
   )

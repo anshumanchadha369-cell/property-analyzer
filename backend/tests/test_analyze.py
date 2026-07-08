@@ -2,7 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services import rentcast, usage
+from app.services import census, fema, hud, rentcast, usage
+from app.services.base import SourceNotConfigured
 from app.services.rentcast import RentCastError
 
 client = TestClient(app)
@@ -45,10 +46,38 @@ RENT_ESTIMATE = {
     "comparables": [],
 }
 
+HUD_FMR = {
+    "year": 2026,
+    "metroName": "Seattle-Bellevue, WA HUD Metro FMR Area",
+    "smallArea": True,
+    "rents": {"efficiency": 1500, "oneBr": 1700, "twoBr": 2050, "threeBr": 2900, "fourBr": 3400},
+}
 
-def _patch_sources(monkeypatch, prop=PROPERTY_RECORD, value=VALUE_ESTIMATE, rent=RENT_ESTIMATE):
+FLOOD_ZONE = {"floodZone": "X", "zoneSubtype": "AREA OF MINIMAL FLOOD HAZARD", "isHighRisk": False}
+
+DEMOGRAPHICS = {
+    "population": 41800,
+    "medianHouseholdIncome": 61250,
+    "medianGrossRent": 1290,
+    "acsYear": 2023,
+}
+
+# The test property record has no coordinates unless included, so give it some
+PROPERTY_RECORD["latitude"] = 47.6062
+PROPERTY_RECORD["longitude"] = -122.3321
+
+
+def _patch_sources(
+    monkeypatch,
+    prop=PROPERTY_RECORD,
+    value=VALUE_ESTIMATE,
+    rent=RENT_ESTIMATE,
+    fmr=HUD_FMR,
+    flood=FLOOD_ZONE,
+    demo=DEMOGRAPHICS,
+):
     def make(result):
-        async def fake(address):
+        async def fake(*args, **kwargs):
             if isinstance(result, Exception):
                 raise result
             return result
@@ -58,6 +87,9 @@ def _patch_sources(monkeypatch, prop=PROPERTY_RECORD, value=VALUE_ESTIMATE, rent
     monkeypatch.setattr(rentcast, "get_property_records", make(prop))
     monkeypatch.setattr(rentcast, "get_value_estimate", make(value))
     monkeypatch.setattr(rentcast, "get_rent_estimate", make(rent))
+    monkeypatch.setattr(hud, "get_fair_market_rents", make(fmr))
+    monkeypatch.setattr(fema, "get_flood_zone", make(flood))
+    monkeypatch.setattr(census, "get_demographics", make(demo))
 
 
 def test_analyze_success(monkeypatch):
@@ -140,3 +172,51 @@ def test_live_mode_not_flagged_as_mock(monkeypatch):
     resp = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"})
     assert resp.json()["meta"]["usage"]["mockMode"] is False
     assert client.get("/usage").json()["mockMode"] is False
+
+
+def test_supplemental_sources_in_response(monkeypatch):
+    _patch_sources(monkeypatch)
+    body = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"}).json()
+
+    assert body["marketRent"]["rents"]["twoBr"] == 2050
+    assert body["risk"]["floodZone"] == "X"
+    assert body["demographics"]["medianHouseholdIncome"] == 61250
+    assert body["meta"]["sources"]["hud_fmr"]["status"] == "ok"
+    assert body["meta"]["sources"]["hud_fmr"]["freshness"] == "annual"
+    assert body["meta"]["sources"]["fema_flood"]["freshness"] == "live"
+    assert body["meta"]["sources"]["census_acs"]["status"] == "ok"
+    # Free sources are NOT billable — still exactly 3 RentCast calls
+    assert body["meta"]["usage"]["callsThisRequest"] == 3
+
+
+def test_not_configured_sources_reported_distinctly(monkeypatch):
+    _patch_sources(
+        monkeypatch,
+        fmr=SourceNotConfigured("HUD_API_TOKEN is not set"),
+        demo=SourceNotConfigured("CENSUS_API_KEY is not set"),
+    )
+    body = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"}).json()
+
+    assert body["marketRent"] is None
+    assert body["meta"]["sources"]["hud_fmr"]["status"] == "not_configured"
+    assert body["meta"]["sources"]["census_acs"]["status"] == "not_configured"
+    # Analysis and metrics unaffected
+    assert body["meta"]["metricsAvailable"] is True
+    assert body["meta"]["usage"]["callsThisRequest"] == 3
+
+
+def test_address_without_zip_skips_zip_sources(monkeypatch):
+    _patch_sources(monkeypatch)
+    body = client.post("/analyze", json={"address": "123 Test St, Seattle"}).json()
+
+    assert body["meta"]["sources"]["hud_fmr"]["status"] == "no_data"
+    assert body["meta"]["sources"]["census_acs"]["status"] == "no_data"
+
+
+def test_fema_error_degrades_gracefully(monkeypatch):
+    _patch_sources(monkeypatch, flood=RuntimeError("arcgis down"))
+    body = client.post("/analyze", json={"address": "123 Test St, Seattle, WA 98101"}).json()
+
+    assert body["risk"] is None
+    assert body["meta"]["sources"]["fema_flood"]["status"] == "error"
+    assert body["meta"]["metricsAvailable"] is True

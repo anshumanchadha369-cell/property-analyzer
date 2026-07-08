@@ -22,7 +22,7 @@ RentCast is primary (property details, AVM, rent estimates, comps — 50 calls/m
 
 ## Testing policy — protect the API quota (user directive, 2026-07-08)
 
-NEVER burn live RentCast calls in tests or routine dev verification — the 50-call/month quota is reserved for the user's real analyses. Unit tests mock at the service/transport layer (monkeypatch or httpx.MockTransport). Browser/E2E verification runs against `backend/mock_rentcast.py` (port 9100) with `RENTCAST_BASE_URL=http://localhost:9100`. Live RentCast calls happen ONLY with the user's explicit approval, typically a single user-chosen address at a phase boundary. Apply the same fixture-first approach to every future data source.
+NEVER burn live RentCast calls in tests or routine dev verification — the 50-call/month quota is reserved for the user's real analyses. Unit tests mock at the service/transport layer (monkeypatch or httpx.MockTransport). Browser/E2E verification runs against `backend/mock_sources.py` (port 9100; mocks RentCast + HUD + FEMA + Census) with the base-URL env overrides listed in the README. Live RentCast calls happen ONLY with the user's explicit approval, typically a single user-chosen address at a phase boundary. Apply the same fixture-first approach to every future data source.
 
 ## Development approach
 

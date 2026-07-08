@@ -40,18 +40,35 @@ The frontend reads `VITE_API_URL` (defaults to `http://localhost:8000`).
 
 ### Mock mode (no API quota usage)
 
-For dev/testing without spending RentCast calls, run the bundled mock and point the backend at it:
+For dev/testing without spending any live API calls, run the bundled mock (all sources: RentCast, HUD, FEMA, Census) and point the backend at it:
 
 ```
-# terminal 1 — mock RentCast on :9100
+# terminal 1 — mock sources on :9100
 cd backend
-.venv\Scripts\python -m uvicorn mock_rentcast:app --port 9100
+.venv\Scripts\python -m uvicorn mock_sources:app --port 9100
 
-# terminal 2 — backend using the mock
+# terminal 2 — backend using the mocks
 cd backend
-$env:RENTCAST_BASE_URL='http://localhost:9100'; $env:RENTCAST_API_KEY='mock-key'
+$env:RENTCAST_BASE_URL='http://localhost:9100'
+$env:RENTCAST_API_KEY='mock-key'
+$env:HUD_BASE_URL='http://localhost:9100/hudapi/public'
+$env:HUD_API_TOKEN='mock-token'
+$env:CENSUS_BASE_URL='http://localhost:9100'
+$env:CENSUS_API_KEY='mock-key'
+$env:FEMA_NFHL_BASE_URL='http://localhost:9100/arcgis/rest/services/public/NFHL/MapServer'
 .venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
 ```
+
+### Data source keys
+
+RentCast is required; the rest are optional and the app degrades gracefully without them (sections show "requires API key"). All free:
+
+| Source | Env var | Signup |
+|---|---|---|
+| RentCast (property/value/rent) | `RENTCAST_API_KEY` | https://app.rentcast.io/app/api |
+| HUD Fair Market Rents | `HUD_API_TOKEN` | https://www.huduser.gov/portal/dataset/fmr-api.html |
+| Census ACS demographics | `CENSUS_API_KEY` | https://api.census.gov/data/key_signup.html |
+| FEMA flood zones | — (no key) | — |
 
 ## Deployment
 

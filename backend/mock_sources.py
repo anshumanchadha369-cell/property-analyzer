@@ -1,22 +1,28 @@
-"""Local mock of the RentCast API — dev/testing without burning API quota.
+"""Local mock of ALL external data sources — dev/testing without any live calls.
 
-Testing policy: never hit live RentCast in tests or routine dev verification.
-Run this on :9100 and point the backend at it via RENTCAST_BASE_URL.
+Testing policy: never hit live APIs in tests or routine dev verification.
+Run this on :9100 and point the backend at it via env overrides:
 
     # terminal 1
-    .venv\\Scripts\\python -m uvicorn mock_rentcast:app --port 9100
+    .venv\\Scripts\\python -m uvicorn mock_sources:app --port 9100
 
     # terminal 2
-    $env:RENTCAST_BASE_URL='http://localhost:9100'; $env:RENTCAST_API_KEY='mock-key'
+    $env:RENTCAST_BASE_URL='http://localhost:9100'
+    $env:RENTCAST_API_KEY='mock-key'
+    $env:HUD_BASE_URL='http://localhost:9100/hudapi/public'
+    $env:HUD_API_TOKEN='mock-token'
+    $env:CENSUS_BASE_URL='http://localhost:9100'
+    $env:CENSUS_API_KEY='mock-key'
+    $env:FEMA_NFHL_BASE_URL='http://localhost:9100/arcgis/rest/services/public/NFHL/MapServer'
     .venv\\Scripts\\python -m uvicorn app.main:app --reload --port 8000
 
 Fixture: a realistic Tacoma fourplex (cap rate lands ~5.2%, below the 6%
 threshold, so red-flag styling is exercised).
 """
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 
-app = FastAPI(title="Mock RentCast")
+app = FastAPI(title="Mock Data Sources")
 
 PROPERTY = {
     "formattedAddress": "1234 S Ainsworth Ave, Tacoma, WA 98405",
@@ -70,6 +76,9 @@ RENT = {
 }
 
 
+# ---- RentCast ----
+
+
 @app.get("/properties")
 def properties(address: str):
     return [PROPERTY]
@@ -83,3 +92,47 @@ def value(address: str):
 @app.get("/avm/rent/long-term")
 def rent(address: str):
     return RENT
+
+
+# ---- HUD Fair Market Rents ----
+
+
+@app.get("/hudapi/public/fmr/data/{zip_code}")
+def hud_fmr(zip_code: str):
+    return {
+        "data": {
+            "metro_name": "Tacoma-Lakewood, WA HUD Metro FMR Area",
+            "smallarea_status": 1,
+            "basicdata": {
+                "year": 2026,
+                "Efficiency": 1450,
+                "One-Bedroom": 1580,
+                "Two-Bedroom": 1890,
+                "Three-Bedroom": 2620,
+                "Four-Bedroom": 3110,
+            },
+        }
+    }
+
+
+# ---- FEMA NFHL flood zones ----
+
+
+@app.get("/arcgis/rest/services/public/NFHL/MapServer/28/query")
+def fema_flood(request: Request):
+    return {
+        "features": [
+            {"attributes": {"FLD_ZONE": "X", "ZONE_SUBTY": "AREA OF MINIMAL FLOOD HAZARD"}}
+        ]
+    }
+
+
+# ---- Census ACS ----
+
+
+@app.get("/data/2023/acs/acs5")
+def census_acs(request: Request):
+    return [
+        ["NAME", "B01003_001E", "B19013_001E", "B25064_001E", "zip code tabulation area"],
+        ["ZCTA5 98405", "41800", "61250", "1290", "98405"],
+    ]

@@ -1,7 +1,33 @@
 export interface SourceStatus {
-  status: 'ok' | 'no_data' | 'error'
+  status: 'ok' | 'no_data' | 'error' | 'not_configured'
   freshness: string | null
   detail: string | null
+}
+
+export interface MarketRent {
+  year: number | null
+  metroName: string | null
+  smallArea: boolean
+  rents: {
+    efficiency: number | null
+    oneBr: number | null
+    twoBr: number | null
+    threeBr: number | null
+    fourBr: number | null
+  }
+}
+
+export interface RiskInfo {
+  floodZone: string
+  zoneSubtype: string | null
+  isHighRisk: boolean
+}
+
+export interface Demographics {
+  population: number | null
+  medianHouseholdIncome: number | null
+  medianGrossRent: number | null
+  acsYear: number
 }
 
 export interface Comparable {
@@ -92,6 +118,9 @@ export interface AnalysisResult {
   property: PropertyInfo | null
   valuation: Valuation | null
   rental: Rental | null
+  marketRent?: MarketRent | null
+  risk?: RiskInfo | null
+  demographics?: Demographics | null
   metrics: Metrics | null
   meta: AnalysisMeta
 }

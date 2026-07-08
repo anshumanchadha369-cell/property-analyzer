@@ -1,5 +1,6 @@
 import type { AnalysisResult, Metrics, SourceStatus } from '../types/analysis'
 import { fmtCurrency, fmtDate, fmtNumber, fmtPercent } from '../lib/format'
+import MarketContext from './MarketContext'
 import { Card, LabelValue, MetricTile, MoneyRow } from './ui'
 
 // v1 product rule: returns below 6% are flagged red, at/above are green.
@@ -9,6 +10,9 @@ const SOURCE_LABELS: Record<string, string> = {
   rentcast_property: 'Property records',
   rentcast_value: 'Value estimate',
   rentcast_rent: 'Rent estimate',
+  hud_fmr: 'HUD FMR',
+  fema_flood: 'Flood zone',
+  census_acs: 'Census ACS',
 }
 
 function Unavailable({ what, source }: { what: string; source?: SourceStatus }) {
@@ -42,7 +46,9 @@ function SourceBadges({
       ? 'bg-emerald-500 dark:bg-emerald-400'
       : s.status === 'no_data'
         ? 'bg-slate-400 dark:bg-slate-500'
-        : 'bg-red-500 dark:bg-red-400'
+        : s.status === 'not_configured'
+          ? 'bg-amber-500 dark:bg-amber-400'
+          : 'bg-red-500 dark:bg-red-400'
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
       {Object.entries(sources).map(([key, s]) => (
@@ -61,10 +67,12 @@ export default function AnalysisDashboard({
   result,
   metrics,
   overridesActive = false,
+  effectiveUnitCount = null,
 }: {
   result: AnalysisResult
   metrics: Metrics | null
   overridesActive?: boolean
+  effectiveUnitCount?: number | null
 }) {
   const { property, valuation, rental, meta } = result
 
@@ -242,6 +250,12 @@ export default function AnalysisDashboard({
           </p>
         )}
       </Card>
+
+      <MarketContext
+        result={result}
+        monthlyRent={metrics?.monthlyRent ?? rental?.rent ?? null}
+        unitCount={effectiveUnitCount ?? property?.unitCount ?? null}
+      />
 
       <SourceBadges sources={meta.sources} fetchedAt={meta.fetchedAt} />
     </div>
