@@ -21,7 +21,11 @@ function Unavailable({ what, source }: { what: string; source?: SourceStatus }) 
   return (
     <p className="text-sm text-slate-500">
       {what} {reason}.
-      {source?.detail ? <span className="mt-1 block text-xs text-slate-600">{source.detail}</span> : null}
+      {source?.detail ? (
+        <span className="mt-1 block text-xs text-slate-400 dark:text-slate-600">
+          {source.detail}
+        </span>
+      ) : null}
     </p>
   )
 }
@@ -34,7 +38,11 @@ function SourceBadges({
   fetchedAt: string
 }) {
   const dot = (s: SourceStatus) =>
-    s.status === 'ok' ? 'bg-emerald-400' : s.status === 'no_data' ? 'bg-slate-500' : 'bg-red-400'
+    s.status === 'ok'
+      ? 'bg-emerald-500 dark:bg-emerald-400'
+      : s.status === 'no_data'
+        ? 'bg-slate-400 dark:bg-slate-500'
+        : 'bg-red-500 dark:bg-red-400'
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500">
       {Object.entries(sources).map(([key, s]) => (
@@ -65,7 +73,9 @@ export default function AnalysisDashboard({
       <Card title="Property">
         {property ? (
           <>
-            <p className="text-lg font-medium text-slate-100">{property.formattedAddress}</p>
+            <p className="text-lg font-medium text-slate-900 dark:text-slate-100">
+              {property.formattedAddress}
+            </p>
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <LabelValue label="Type" value={property.propertyType ?? '—'} />
               <LabelValue label="Units" value={fmtNumber(property.unitCount)} />
@@ -99,8 +109,10 @@ export default function AnalysisDashboard({
         <Card title="Estimated Value">
           {valuation?.value != null ? (
             <>
-              <p className="text-3xl font-semibold text-slate-100">{fmtCurrency(valuation.value)}</p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+                {fmtCurrency(valuation.value)}
+              </p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 range {fmtCurrency(valuation.valueRangeLow)} – {fmtCurrency(valuation.valueRangeHigh)}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-4">
@@ -119,11 +131,14 @@ export default function AnalysisDashboard({
         <Card title="Estimated Rent">
           {rental?.rent != null ? (
             <>
-              <p className="text-3xl font-semibold text-slate-100">
+              <p className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
                 {fmtCurrency(rental.rent)}
-                <span className="text-base font-normal text-slate-400"> / mo</span>
+                <span className="text-base font-normal text-slate-500 dark:text-slate-400">
+                  {' '}
+                  / mo
+                </span>
               </p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                 range {fmtCurrency(rental.rentRangeLow)} – {fmtCurrency(rental.rentRangeHigh)}
               </p>
               <p className="mt-3 text-xs text-slate-500">
@@ -141,7 +156,7 @@ export default function AnalysisDashboard({
         right={
           <span className="text-xs text-slate-500">
             {overridesActive ? (
-              <span className="mr-2 rounded bg-sky-500/15 px-1.5 py-0.5 text-sky-300">
+              <span className="mr-2 rounded bg-sky-500/10 px-1.5 py-0.5 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
                 using manual inputs
               </span>
             ) : null}
@@ -179,7 +194,7 @@ export default function AnalysisDashboard({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Income (annual)
                 </h3>
-                <div className="divide-y divide-slate-800 text-sm">
+                <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
                   <MoneyRow label="Gross scheduled income" amount={metrics.grossScheduledIncome} />
                   <MoneyRow
                     label={`Vacancy (${fmtPercent(metrics.vacancyRate, 0)})`}
@@ -192,7 +207,7 @@ export default function AnalysisDashboard({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Operating Expenses (annual)
                 </h3>
-                <div className="divide-y divide-slate-800 text-sm">
+                <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
                   <MoneyRow
                     label="Property taxes"
                     amount={metrics.operatingExpenses.propertyTaxes}

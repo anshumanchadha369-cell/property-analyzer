@@ -22,6 +22,9 @@ interface Props {
   fetched: Fetched
 }
 
+const INPUT_CLASSES =
+  'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600'
+
 function SliderRow({
   label,
   value,
@@ -42,8 +45,10 @@ function SliderRow({
   return (
     <div>
       <div className="flex justify-between text-xs">
-        <span className="text-slate-400">{label}</span>
-        <span className="font-medium tabular-nums text-slate-200">{display}</span>
+        <span className="text-slate-500 dark:text-slate-400">{label}</span>
+        <span className="font-medium tabular-nums text-slate-700 dark:text-slate-200">
+          {display}
+        </span>
       </div>
       <input
         type="range"
@@ -71,7 +76,7 @@ function OverrideField({
 }) {
   return (
     <div>
-      <label className="text-xs text-slate-400">{label}</label>
+      <label className="text-xs text-slate-500 dark:text-slate-400">{label}</label>
       <input
         type="number"
         inputMode="decimal"
@@ -83,7 +88,7 @@ function OverrideField({
           const n = Number(raw)
           onChange(Number.isFinite(n) && n >= 0 ? n : null)
         }}
-        className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none"
+        className={INPUT_CLASSES}
       />
     </div>
   )
@@ -109,7 +114,7 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
             onClick={() =>
               onOverrides({ price: null, monthlyRent: null, unitCount: null, annualTaxes: null })
             }
-            className="text-xs text-sky-400 hover:text-sky-300"
+            className="text-xs text-sky-600 hover:text-sky-500 dark:text-sky-400 dark:hover:text-sky-300"
           >
             reset to fetched data
           </button>
@@ -133,12 +138,15 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
                 const n = Number(raw)
                 set({ availableCash: raw === '' || !Number.isFinite(n) ? null : n })
               }}
-              className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2.5 text-lg font-medium text-slate-100 placeholder:text-slate-600 focus:border-sky-500 focus:outline-none"
+              className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-lg font-medium text-slate-900 placeholder:text-slate-400 focus:border-sky-500 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-600"
             />
           </div>
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-              Manual overrides <span className="normal-case text-slate-600">(fix AVM mismatches)</span>
+              Manual overrides{' '}
+              <span className="normal-case text-slate-400 dark:text-slate-600">
+                (fix AVM mismatches)
+              </span>
             </p>
             <div className="grid grid-cols-2 gap-3">
               <OverrideField
@@ -175,7 +183,7 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
               Financing
             </p>
-            <div className="flex gap-1 rounded-lg border border-slate-800 bg-slate-950 p-1">
+            <div className="flex gap-1 rounded-lg border border-slate-200 bg-slate-100 p-1 dark:border-slate-800 dark:bg-slate-950">
               {(Object.keys(LOAN_PRESETS) as LoanType[]).map((t) => (
                 <button
                   key={t}
@@ -183,7 +191,7 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
                   className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
                     settings.loanType === t
                       ? 'bg-sky-600 text-white'
-                      : 'text-slate-400 hover:text-slate-200'
+                      : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
                   }`}
                 >
                   {LOAN_PRESETS[t].label}

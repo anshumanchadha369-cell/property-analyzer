@@ -12,10 +12,11 @@ export default function UsageBadge({ calls }: { calls: number }) {
   const analysesLeft = Math.floor(remaining / CALLS_PER_ANALYSIS)
 
   const styles: Record<string, string> = {
-    ok: 'border-slate-700 bg-slate-900 text-slate-400',
-    warn: 'border-amber-500/40 bg-amber-950/30 text-amber-300',
-    'over-soon': 'border-red-500/40 bg-red-950/30 text-red-300',
-    over: 'border-red-500/40 bg-red-950/30 text-red-300',
+    ok: 'border-slate-300 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400',
+    warn: 'border-amber-500/50 bg-amber-50 text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-300',
+    'over-soon':
+      'border-red-500/50 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-300',
+    over: 'border-red-500/50 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-950/30 dark:text-red-300',
   }
 
   const label =

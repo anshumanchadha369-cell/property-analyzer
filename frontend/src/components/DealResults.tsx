@@ -97,7 +97,7 @@ export default function DealResults({
       </Card>
 
       <Card title="Cash Deployment">
-        <div className="divide-y divide-slate-800 text-sm">
+        <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
           <MoneyRow
             label={`Down payment (${Math.round(settings.downPct * 100)}%)`}
             amount={deployment.downPayment}
@@ -119,10 +119,10 @@ export default function DealResults({
             <div
               className={`flex justify-between py-1.5 font-semibold ${
                 undeployedTone === 'short'
-                  ? 'text-red-400'
+                  ? 'text-red-600 dark:text-red-400'
                   : undeployedTone === 'thin'
-                    ? 'text-amber-400'
-                    : 'text-emerald-400'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-emerald-600 dark:text-emerald-400'
               }`}
             >
               <span>
@@ -147,8 +147,8 @@ export default function DealResults({
         <div
           className={`mt-4 rounded-lg border p-3 text-xs leading-relaxed ${
             premium != null && premium < 0
-              ? 'border-red-500/30 bg-red-950/20 text-red-300'
-              : 'border-slate-800 bg-slate-950/60 text-slate-400'
+              ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-950/20 dark:text-red-300'
+              : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400'
           }`}
         >
           {coc == null ? (
@@ -162,7 +162,7 @@ export default function DealResults({
               {premium != null && premium >= 0 ? (
                 <>
                   Premium for the risk:{' '}
-                  <span className="font-semibold text-emerald-400">
+                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
                     +{(premium * 100).toFixed(1)} pts
                   </span>
                 </>

@@ -3,6 +3,7 @@ import AddressForm from './components/AddressForm'
 import AnalysisView from './components/AnalysisView'
 import UsageBadge from './components/UsageBadge'
 import { analyzeAddress, fetchUsage } from './lib/api'
+import { currentTheme, setTheme, type Theme } from './lib/theme'
 import { loadUsage, recordCalls, reconcile, type UsageState } from './lib/usage'
 import type { AnalysisResult } from './types/analysis'
 
@@ -16,6 +17,7 @@ export default function App() {
   const [state, setState] = useState<ViewState>({ status: 'idle' })
   const [usage, setUsage] = useState<UsageState>(() => loadUsage())
   const [mockMode, setMockMode] = useState(false)
+  const [theme, setThemeState] = useState<Theme>(() => currentTheme())
 
   useEffect(() => {
     // Server tally is best-effort (resets on restart); take the max.
@@ -26,6 +28,12 @@ export default function App() {
       }
     })
   }, [])
+
+  function toggleTheme() {
+    const next: Theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(next)
+    setThemeState(next)
+  }
 
   async function run(address: string) {
     setState({ status: 'loading', address })
@@ -44,26 +52,36 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
+    <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <header className="mb-8">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-3xl font-semibold">Property Analyzer</h1>
-              <p className="mt-1 text-slate-400">
+              <p className="mt-1 text-slate-500 dark:text-slate-400">
                 Multi-unit investment snapshot from a single address.
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <UsageBadge calls={usage.calls} />
-              {mockMode ? (
-                <span
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/40 bg-amber-950/30 px-3 py-1.5 text-xs font-semibold text-amber-300"
-                  title="The backend is pointed at the local mock RentCast server. No live API calls are made and nothing counts against your quota."
-                >
-                  ⚠ MOCK DATA — no API quota used
-                </span>
-              ) : null}
+            <div className="flex items-start gap-2">
+              <div className="flex flex-col items-end gap-2">
+                <UsageBadge calls={usage.calls} />
+                {mockMode ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/60 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-300"
+                    title="The backend is pointed at the local mock RentCast server. No live API calls are made and nothing counts against your quota."
+                  >
+                    ⚠ MOCK DATA — no API quota used
+                  </span>
+                ) : null}
+              </div>
+              <button
+                onClick={toggleTheme}
+                aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+                className="rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-base leading-6 text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                {theme === 'dark' ? '☀' : '☾'}
+              </button>
             </div>
           </div>
         </header>
@@ -72,22 +90,22 @@ export default function App() {
 
         <div className="mt-8">
           {state.status === 'idle' && (
-            <p className="text-sm text-slate-600">
+            <p className="text-sm text-slate-500 dark:text-slate-600">
               Enter an address to fetch property records, value estimate, and market rent.
             </p>
           )}
           {state.status === 'loading' && (
-            <div className="rounded-xl border border-slate-800 bg-slate-900 p-6">
-              <p className="animate-pulse text-slate-300">
+            <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+              <p className="animate-pulse text-slate-600 dark:text-slate-300">
                 Analyzing {state.address} — fetching property records, value estimate, rent
                 estimate…
               </p>
             </div>
           )}
           {state.status === 'error' && (
-            <div className="rounded-xl border border-red-500/40 bg-red-950/30 p-6">
-              <p className="text-red-300">{state.message}</p>
-              <p className="mt-2 text-sm text-red-400/70">
+            <div className="rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-950/30">
+              <p className="text-red-700 dark:text-red-300">{state.message}</p>
+              <p className="mt-2 text-sm text-red-600/80 dark:text-red-400/70">
                 Check that the backend is running and reachable, then try again.
               </p>
             </div>
