@@ -12,15 +12,33 @@ import {
   type DealSettings,
   type Overrides,
 } from '../lib/deal-math'
+import type { SavedSummary } from '../lib/db'
 import type { AnalysisResult } from '../types/analysis'
 
-export default function AnalysisView({ result }: { result: AnalysisResult }) {
-  const [settings, setSettings] = useState<DealSettings>(() => loadSettings())
-  const [overrides, setOverrides] = useState<Overrides>(EMPTY_OVERRIDES)
+export interface SavePayload {
+  address: string
+  overrides: Overrides
+  settings: DealSettings
+  summary: SavedSummary
+}
+
+export default function AnalysisView({
+  result,
+  initialOverrides,
+  initialSettings,
+  saved,
+  onSave,
+}: {
+  result: AnalysisResult
+  initialOverrides?: Overrides
+  initialSettings?: DealSettings
+  saved: boolean
+  onSave: (payload: SavePayload) => void
+}) {
+  const [settings, setSettings] = useState<DealSettings>(() => initialSettings ?? loadSettings())
+  const [overrides, setOverrides] = useState<Overrides>(initialOverrides ?? EMPTY_OVERRIDES)
 
   useEffect(() => saveSettings(settings), [settings])
-  // A new analysis means new fetched data — clear property-specific overrides.
-  useEffect(() => setOverrides(EMPTY_OVERRIDES), [result.meta.fetchedAt])
 
   const base = useMemo(() => deriveBase(result, overrides), [result, overrides])
   const operating = useMemo(() => computeOperating(base, settings), [base, settings])
@@ -31,8 +49,37 @@ export default function AnalysisView({ result }: { result: AnalysisResult }) {
 
   const overridesActive = Object.values(overrides).some((v) => v != null)
 
+  function handleSave() {
+    onSave({
+      address: result.property?.formattedAddress ?? result.meta.address,
+      overrides,
+      settings,
+      summary: {
+        unitCount: base.unitCount,
+        price: base.price,
+        capRate: operating?.capRate ?? null,
+        cashOnCash: deployment?.cashOnCash ?? null,
+        monthlyCashFlow: deployment?.monthlyCashFlow ?? null,
+      },
+    })
+  }
+
   return (
     <div className="space-y-6">
+      <div className="flex items-center justify-end gap-3">
+        {saved ? (
+          <span className="text-xs text-emerald-600 dark:text-emerald-400">
+            ✓ saved — updates apply on save
+          </span>
+        ) : null}
+        <button
+          onClick={handleSave}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-emerald-500"
+          title="Persist this analysis locally (and sync when configured). Loading it later costs no API calls."
+        >
+          {saved ? 'Update saved analysis' : 'Save analysis'}
+        </button>
+      </div>
       <DealInputs
         settings={settings}
         onSettings={setSettings}

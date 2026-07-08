@@ -1,31 +1,61 @@
 import { useEffect, useState } from 'react'
 import AddressForm from './components/AddressForm'
-import AnalysisView from './components/AnalysisView'
+import AnalysisView, { type SavePayload } from './components/AnalysisView'
+import SavedList from './components/SavedList'
 import UsageBadge from './components/UsageBadge'
 import { analyzeAddress, fetchUsage } from './lib/api'
+import {
+  deleteSaved,
+  listSaved,
+  mergeRemote,
+  newId,
+  putSaved,
+  type SavedAnalysis,
+} from './lib/db'
+import { pullRemote, pushDelete, pushRecord } from './lib/sync'
 import { currentTheme, setTheme, type Theme } from './lib/theme'
+import { CALLS_PER_ANALYSIS } from './lib/usage'
 import { loadUsage, recordCalls, reconcile, type UsageState } from './lib/usage'
+import { computeDeployment, computeOperating, deriveBase } from './lib/deal-math'
 import type { AnalysisResult } from './types/analysis'
 
-type ViewState =
+type AnalyzeState =
   | { status: 'idle' }
   | { status: 'loading'; address: string }
-  | { status: 'done'; result: AnalysisResult }
+  | {
+      status: 'done'
+      result: AnalysisResult
+      savedId: string | null
+      initial?: Pick<SavedAnalysis, 'overrides' | 'settings'>
+    }
   | { status: 'error'; message: string }
 
+type Tab = 'analyze' | 'saved'
+
 export default function App() {
-  const [state, setState] = useState<ViewState>({ status: 'idle' })
+  const [state, setState] = useState<AnalyzeState>({ status: 'idle' })
+  const [tab, setTab] = useState<Tab>('analyze')
+  const [saved, setSaved] = useState<SavedAnalysis[]>([])
   const [usage, setUsage] = useState<UsageState>(() => loadUsage())
   const [mockMode, setMockMode] = useState(false)
   const [theme, setThemeState] = useState<Theme>(() => currentTheme())
 
+  async function refreshSaved() {
+    setSaved(await listSaved())
+  }
+
   useEffect(() => {
+    refreshSaved()
     // Server tally is best-effort (resets on restart); take the max.
     fetchUsage().then((server) => {
       if (server) {
         setUsage(reconcile(server.callsThisPeriod))
         setMockMode(server.mockMode ?? false)
       }
+    })
+    // Pull remote saves (no-op until Supabase sync is configured).
+    pullRemote().then(async (records) => {
+      if (records.length && (await mergeRemote(records)) > 0) refreshSaved()
     })
   }, [])
 
@@ -35,26 +65,110 @@ export default function App() {
     setThemeState(next)
   }
 
+  async function performAnalysis(address: string): Promise<AnalysisResult> {
+    const result = await analyzeAddress(address)
+    const calls = result.meta.usage?.callsThisRequest ?? 0
+    if (calls > 0) setUsage(recordCalls(calls))
+    setMockMode(result.meta.usage?.mockMode ?? false)
+    return result
+  }
+
   async function run(address: string) {
     setState({ status: 'loading', address })
     try {
-      const result = await analyzeAddress(address)
-      const calls = result.meta.usage?.callsThisRequest ?? 0
-      if (calls > 0) setUsage(recordCalls(calls))
-      setMockMode(result.meta.usage?.mockMode ?? false)
-      setState({ status: 'done', result })
+      const result = await performAnalysis(address)
+      setState({ status: 'done', result, savedId: null })
     } catch (err) {
-      setState({
-        status: 'error',
-        message: err instanceof Error ? err.message : String(err),
-      })
+      setState({ status: 'error', message: err instanceof Error ? err.message : String(err) })
     }
   }
+
+  async function handleSave(payload: SavePayload) {
+    if (state.status !== 'done') return
+    const now = new Date().toISOString()
+    const existing = state.savedId ? saved.find((r) => r.id === state.savedId) : undefined
+    const record: SavedAnalysis = {
+      id: state.savedId ?? newId(),
+      address: payload.address,
+      savedAt: existing?.savedAt ?? now,
+      updatedAt: now,
+      result: state.result,
+      overrides: payload.overrides,
+      settings: payload.settings,
+      summary: payload.summary,
+    }
+    await putSaved(record)
+    pushRecord(record) // fire-and-forget sync
+    await refreshSaved()
+    setState({ ...state, savedId: record.id })
+  }
+
+  function handleLoad(record: SavedAnalysis) {
+    setState({
+      status: 'done',
+      result: record.result,
+      savedId: record.id,
+      initial: { overrides: record.overrides, settings: record.settings },
+    })
+    setTab('analyze')
+  }
+
+  async function handleDelete(record: SavedAnalysis) {
+    if (!window.confirm(`Delete the saved analysis for ${record.address}?`)) return
+    await deleteSaved(record.id)
+    pushDelete(record.id)
+    await refreshSaved()
+    if (state.status === 'done' && state.savedId === record.id) {
+      setState({ ...state, savedId: null })
+    }
+  }
+
+  async function handleRefetch(record: SavedAnalysis) {
+    const ok = window.confirm(
+      `Re-fetching ${record.address} uses ${CALLS_PER_ANALYSIS} API calls. Continue?`,
+    )
+    if (!ok) return
+    setTab('analyze')
+    setState({ status: 'loading', address: record.address })
+    try {
+      const result = await performAnalysis(record.result.meta.address)
+      const base = deriveBase(result, record.overrides)
+      const operating = computeOperating(base, record.settings)
+      const deployment =
+        operating && base.price ? computeDeployment(base.price, operating, record.settings) : null
+      const updated: SavedAnalysis = {
+        ...record,
+        updatedAt: new Date().toISOString(),
+        result,
+        summary: {
+          unitCount: base.unitCount,
+          price: base.price,
+          capRate: operating?.capRate ?? null,
+          cashOnCash: deployment?.cashOnCash ?? null,
+          monthlyCashFlow: deployment?.monthlyCashFlow ?? null,
+        },
+      }
+      await putSaved(updated)
+      pushRecord(updated)
+      await refreshSaved()
+      setState({
+        status: 'done',
+        result,
+        savedId: record.id,
+        initial: { overrides: record.overrides, settings: record.settings },
+      })
+    } catch (err) {
+      setState({ status: 'error', message: err instanceof Error ? err.message : String(err) })
+    }
+  }
+
+  const analysisKey =
+    state.status === 'done' ? (state.savedId ?? state.result.meta.fetchedAt) : 'none'
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
-        <header className="mb-8">
+        <header className="mb-6">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-3xl font-semibold">Property Analyzer</h1>
@@ -86,32 +200,73 @@ export default function App() {
           </div>
         </header>
 
-        <AddressForm onSubmit={run} busy={state.status === 'loading'} />
-
-        <div className="mt-8">
-          {state.status === 'idle' && (
-            <p className="text-sm text-slate-500 dark:text-slate-600">
-              Enter an address to fetch property records, value estimate, and market rent.
-            </p>
-          )}
-          {state.status === 'loading' && (
-            <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <p className="animate-pulse text-slate-600 dark:text-slate-300">
-                Analyzing {state.address} — fetching property records, value estimate, rent
-                estimate…
-              </p>
-            </div>
-          )}
-          {state.status === 'error' && (
-            <div className="rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-950/30">
-              <p className="text-red-700 dark:text-red-300">{state.message}</p>
-              <p className="mt-2 text-sm text-red-600/80 dark:text-red-400/70">
-                Check that the backend is running and reachable, then try again.
-              </p>
-            </div>
-          )}
-          {state.status === 'done' && <AnalysisView result={state.result} />}
+        <div className="mb-6 flex w-fit gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-slate-800 dark:bg-slate-900">
+          {(
+            [
+              ['analyze', 'Analyze'],
+              ['saved', `Saved (${saved.length})`],
+            ] as [Tab, string][]
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
+                tab === key
+                  ? 'bg-sky-600 text-white'
+                  : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
+
+        {tab === 'analyze' ? (
+          <>
+            <AddressForm onSubmit={run} busy={state.status === 'loading'} />
+            <div className="mt-8">
+              {state.status === 'idle' && (
+                <p className="text-sm text-slate-500 dark:text-slate-600">
+                  Enter an address to fetch property records, value estimate, and market rent.
+                </p>
+              )}
+              {state.status === 'loading' && (
+                <div className="rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+                  <p className="animate-pulse text-slate-600 dark:text-slate-300">
+                    Analyzing {state.address} — fetching property records, value estimate, rent
+                    estimate…
+                  </p>
+                </div>
+              )}
+              {state.status === 'error' && (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-500/40 dark:bg-red-950/30">
+                  <p className="text-red-700 dark:text-red-300">{state.message}</p>
+                  <p className="mt-2 text-sm text-red-600/80 dark:text-red-400/70">
+                    Check that the backend is running and reachable, then try again.
+                  </p>
+                </div>
+              )}
+              {state.status === 'done' && (
+                <AnalysisView
+                  key={analysisKey}
+                  result={state.result}
+                  initialOverrides={state.initial?.overrides}
+                  initialSettings={state.initial?.settings}
+                  saved={state.savedId != null}
+                  onSave={handleSave}
+                />
+              )}
+            </div>
+          </>
+        ) : (
+          <SavedList
+            records={saved}
+            busy={state.status === 'loading'}
+            onLoad={handleLoad}
+            onRefetch={handleRefetch}
+            onDelete={handleDelete}
+          />
+        )}
       </div>
     </main>
   )

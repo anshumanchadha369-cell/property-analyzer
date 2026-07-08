@@ -34,6 +34,7 @@ Incremental, working-to-working phases — each ends deployed and usable:
 0. Infra skeleton (done when: frontend on Vercel talks to backend on Render) — DONE
 1. Core analysis with RentCast only — DONE (live-verified 2026-07-08)
 2. Cash deployment calculator + manual overrides — DONE (2026-07-08; TS mirror of tested Python math in frontend/src/lib/deal-math.ts, keep in sync with backend/app/calculations/)
+3. Persistence — DONE (2026-07-08). Local-first: IndexedDB (Dexie, frontend/src/lib/db.ts) is primary; saved analyses load with ZERO API calls. Supabase sync is optional and goes through backend /analyses endpoints (service key server-side only; endpoints report configured:false until SUPABASE_URL + SUPABASE_SERVICE_KEY are set on Render — table SQL in app/services/supabase_store.py docstring). Records: {id, address, savedAt, updatedAt, result snapshot, overrides, settings, summary}; merge strategy last-write-wins by updatedAt. Re-fetch from saved list costs 3 calls and asks confirm().
 2. Cash deployment calculator (client-side)
 3. Persistence (IndexedDB + Supabase sync)
 4. Additional data APIs, one at a time (HUD → FEMA → Census → FRED/BLS → Walk Score → GreatSchools)

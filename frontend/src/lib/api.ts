@@ -1,6 +1,6 @@
 import type { AnalysisResult, UsageInfo } from '../types/analysis'
 
-const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export async function fetchUsage(): Promise<UsageInfo | null> {
   try {
