@@ -94,23 +94,31 @@ def rent(address: str):
     return RENT
 
 
-# ---- HUD Fair Market Rents ----
+# ---- HUD Fair Market Rents (crosswalk + county FMR, like the real API) ----
 
 
-@app.get("/hudapi/public/fmr/data/{zip_code}")
-def hud_fmr(zip_code: str):
+@app.get("/hudapi/public/usps")
+def hud_crosswalk(type: str, query: str):
+    return {"data": {"results": [{"geoid": "53053", "res_ratio": 0.97}]}}
+
+
+@app.get("/hudapi/public/fmr/data/{entity_id}")
+def hud_fmr(entity_id: str):
     return {
         "data": {
             "metro_name": "Tacoma-Lakewood, WA HUD Metro FMR Area",
-            "smallarea_status": 1,
-            "basicdata": {
-                "year": 2026,
-                "Efficiency": 1450,
-                "One-Bedroom": 1580,
-                "Two-Bedroom": 1890,
-                "Three-Bedroom": 2620,
-                "Four-Bedroom": 3110,
-            },
+            "smallarea_status": "1",
+            "basicdata": [
+                {
+                    "zip_code": "98405",
+                    "year": 2026,
+                    "Efficiency": 1450,
+                    "One-Bedroom": 1580,
+                    "Two-Bedroom": 1890,
+                    "Three-Bedroom": 2620,
+                    "Four-Bedroom": 3110,
+                }
+            ],
         }
     }
 

@@ -14,31 +14,40 @@ def anyio_backend():
 # ---- HUD ----
 
 
-@pytest.mark.anyio
-async def test_hud_parses_dict_basicdata(monkeypatch):
-    monkeypatch.setattr(config, "HUD_API_TOKEN", "token")
+def _hud_handler(fmr_payload, crosswalk_results=None):
+    if crosswalk_results is None:
+        crosswalk_results = [{"geoid": "53033", "res_ratio": 0.9}]
 
     def handler(request):
         assert request.headers["Authorization"] == "Bearer token"
-        assert request.url.path.endswith("/fmr/data/98405")
-        return httpx.Response(
-            200,
-            json={
-                "data": {
-                    "metro_name": "Tacoma-Lakewood",
-                    "smallarea_status": 1,
-                    "basicdata": {
-                        "year": 2026,
-                        "Efficiency": 1450,
-                        "One-Bedroom": 1580,
-                        "Two-Bedroom": 1890,
-                        "Three-Bedroom": 2620,
-                        "Four-Bedroom": 3110,
-                    },
-                }
-            },
-        )
+        if request.url.path.endswith("/usps"):
+            assert request.url.params["type"] == "2"
+            return httpx.Response(200, json={"data": {"results": crosswalk_results}})
+        assert request.url.path.endswith("/fmr/data/5303399999")
+        return httpx.Response(200, json=fmr_payload)
 
+    return handler
+
+
+@pytest.mark.anyio
+async def test_hud_parses_dict_basicdata(monkeypatch):
+    monkeypatch.setattr(config, "HUD_API_TOKEN", "token")
+    handler = _hud_handler(
+        {
+            "data": {
+                "metro_name": "Tacoma-Lakewood",
+                "smallarea_status": "1",
+                "basicdata": {
+                    "year": 2026,
+                    "Efficiency": 1450,
+                    "One-Bedroom": 1580,
+                    "Two-Bedroom": 1890,
+                    "Three-Bedroom": 2620,
+                    "Four-Bedroom": 3110,
+                },
+            }
+        }
+    )
     monkeypatch.setattr(hud, "_transport", httpx.MockTransport(handler))
     result = await hud.get_fair_market_rents("98405")
     assert result["year"] == 2026
@@ -47,27 +56,61 @@ async def test_hud_parses_dict_basicdata(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_hud_parses_list_basicdata(monkeypatch):
+async def test_hud_picks_matching_zip_row_from_safmr_list(monkeypatch):
     monkeypatch.setattr(config, "HUD_API_TOKEN", "token")
-
-    def handler(request):
-        return httpx.Response(
-            200,
-            json={"data": {"basicdata": [{"year": 2026, "Two-Bedroom": 2000}]}},
-        )
-
+    handler = _hud_handler(
+        {
+            "data": {
+                "metro_name": "Seattle-Bellevue",
+                "smallarea_status": "1",
+                "basicdata": [
+                    {"zip_code": "98101", "year": 2026, "Two-Bedroom": 2600},
+                    {"zip_code": "98030", "year": 2026, "Two-Bedroom": 2050},
+                ],
+            }
+        }
+    )
     monkeypatch.setattr(hud, "_transport", httpx.MockTransport(handler))
-    result = await hud.get_fair_market_rents("98405")
-    assert result["rents"]["twoBr"] == 2000
-    assert result["rents"]["oneBr"] is None
+    result = await hud.get_fair_market_rents("98030")
+    assert result["rents"]["twoBr"] == 2050
 
 
 @pytest.mark.anyio
-async def test_hud_404_is_no_data(monkeypatch):
+async def test_hud_crosswalk_prefers_highest_res_ratio(monkeypatch):
     monkeypatch.setattr(config, "HUD_API_TOKEN", "token")
-    monkeypatch.setattr(
-        hud, "_transport", httpx.MockTransport(lambda r: httpx.Response(404))
-    )
+    seen = {}
+
+    def handler(request):
+        if request.url.path.endswith("/usps"):
+            return httpx.Response(
+                200,
+                json={
+                    "data": {
+                        "results": [
+                            {"geoid": "53061", "res_ratio": 0.2},
+                            {"geoid": "53033", "res_ratio": 0.8},
+                        ]
+                    }
+                },
+            )
+        seen["entity"] = request.url.path.rsplit("/", 1)[-1]
+        return httpx.Response(
+            200, json={"data": {"basicdata": {"year": 2026, "Two-Bedroom": 2000}}}
+        )
+
+    monkeypatch.setattr(hud, "_transport", httpx.MockTransport(handler))
+    await hud.get_fair_market_rents("98030")
+    assert seen["entity"] == "5303399999"
+
+
+@pytest.mark.anyio
+async def test_hud_unknown_zip_is_no_data(monkeypatch):
+    monkeypatch.setattr(config, "HUD_API_TOKEN", "token")
+
+    def handler(request):
+        return httpx.Response(200, json={"data": {"results": []}})
+
+    monkeypatch.setattr(hud, "_transport", httpx.MockTransport(handler))
     assert await hud.get_fair_market_rents("00000") is None
 
 
