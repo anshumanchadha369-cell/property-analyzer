@@ -97,10 +97,13 @@ def test_compute_deployment_rejects_bad_price():
 
 # ---- targets (round-trip: plug the target back in, milestone must hold) ----
 
+LAKEWOOD_UNITS = 3
+
 LAKEWOOD = dict(
     price=674_999,
     monthly_rent=4_950,
     annual_taxes=5_737.0,
+    insurance_annual=600.0 * LAKEWOOD_UNITS,
     down_pct=0.25,
     interest_rate=0.07,
     loan_years=30,
@@ -119,6 +122,7 @@ def _deployment_at(price: float, monthly_rent: float, taxes: float | None):
         price=price,
         monthly_rent=monthly_rent,
         annual_taxes=taxes,
+        unit_count=LAKEWOOD_UNITS,
         vacancy_rate=LAKEWOOD["vacancy_rate"],
         management_rate=LAKEWOOD["management_rate"],
         maintenance_rate=LAKEWOOD["maintenance_rate"],
@@ -188,6 +192,15 @@ def test_targets_with_estimated_taxes_round_trip():
     result = _deployment_at(targets["coc6"]["maxPrice"], LAKEWOOD["monthly_rent"], None)
     assert result["cashOnCash"] >= 0.06
     assert result["cashOnCash"] < 0.062
+
+
+def test_insurance_is_fixed_not_price_proportional():
+    # Same inputs, double the insurance: max price should drop by roughly
+    # the capitalized value of the extra $1,800, not scale multiplicatively.
+    base = cd.compute_targets(**LAKEWOOD)
+    heavier = cd.compute_targets(**{**LAKEWOOD, "insurance_annual": 3_600.0})
+    assert heavier["coc6"]["maxPrice"] < base["coc6"]["maxPrice"]
+    assert heavier["coc6"]["requiredRent"] > base["coc6"]["requiredRent"]
 
 
 def test_targets_degenerate_rates_return_none():

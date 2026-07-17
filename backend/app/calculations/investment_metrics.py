@@ -7,8 +7,9 @@ Rates are fractions (0.05 == 5%).
 DEFAULT_VACANCY_RATE = 0.05
 DEFAULT_MANAGEMENT_RATE = 0.10
 DEFAULT_MAINTENANCE_RATE = 0.10
-# Fallbacks when sourced data is missing, as a fraction of property value.
-DEFAULT_INSURANCE_RATE_OF_VALUE = 0.005
+# Insurance fallback: flat per-door annual estimate (user-calibrated for
+# WA multi-family). Taxes fallback stays a fraction of property value.
+INSURANCE_PER_DOOR = 600.0
 DEFAULT_TAX_RATE_OF_VALUE = 0.01
 
 ONE_PERCENT_THRESHOLD = 0.01
@@ -32,6 +33,7 @@ def estimate_operating_expenses(
     management_rate: float = DEFAULT_MANAGEMENT_RATE,
     maintenance_rate: float = DEFAULT_MAINTENANCE_RATE,
     insurance_annual: float | None = None,
+    unit_count: int | None = None,
     hoa_annual: float = 0.0,
 ) -> dict:
     taxes_estimated = annual_taxes is None
@@ -39,7 +41,7 @@ def estimate_operating_expenses(
         annual_taxes = property_value * DEFAULT_TAX_RATE_OF_VALUE
     insurance_estimated = insurance_annual is None
     if insurance_annual is None:
-        insurance_annual = property_value * DEFAULT_INSURANCE_RATE_OF_VALUE
+        insurance_annual = INSURANCE_PER_DOOR * (unit_count or 1)
 
     management = egi_annual * management_rate
     maintenance = egi_annual * maintenance_rate
@@ -119,6 +121,7 @@ def compute_metrics(
         management_rate=management_rate,
         maintenance_rate=maintenance_rate,
         insurance_annual=insurance_annual,
+        unit_count=unit_count,
         hoa_annual=hoa_annual,
     )
     noi = net_operating_income(egi, expenses["total"])

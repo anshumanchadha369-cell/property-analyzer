@@ -59,7 +59,6 @@ def break_even_months(cash_invested: float, monthly_cf: float) -> float | None:
 
 TARGET_DSCR = 1.25
 TARGET_COC = 0.06
-INSURANCE_RATE_OF_VALUE = 0.005
 TAX_RATE_OF_VALUE = 0.01
 
 
@@ -68,6 +67,7 @@ def compute_targets(
     price: float,
     monthly_rent: float,
     annual_taxes: float | None,  # None -> estimated at 1% of price
+    insurance_annual: float,  # fixed (per-door estimate or actual)
     down_pct: float,
     interest_rate: float,
     loan_years: int,
@@ -84,12 +84,12 @@ def compute_targets(
     Mirrored in frontend/src/lib/deal-math.ts computeTargets — keep in sync.
 
     Derivation: with D = 12(1-v)(1-m-mt), rent-driven NOI A = D*R,
-    price-proportional expenses cP (insurance 0.5% + taxes 1% when estimated),
-    fixed taxes T0 otherwise, and per-dollar annual debt service
+    price-proportional expenses cP (taxes 1% when estimated), fixed costs
+    F = insurance + taxes-when-sourced, and per-dollar annual debt service
     ads1 = 12*payment(1-d, rate, years):
-      cash flow >= 0:   A - cP - T0 - ads1*P >= 0
-      DSCR >= t:        A - cP - T0 - t*ads1*P >= 0
-      CoC >= y:         A - cP - T0 - ads1*P >= y*((d+cl)P + rehab)
+      cash flow >= 0:   A - cP - F - ads1*P >= 0
+      DSCR >= t:        A - cP - F - t*ads1*P >= 0
+      CoC >= y:         A - cP - F - ads1*P >= y*((d+cl)P + rehab)
     each linear in P (solve for max P) and in R (solve for required rent).
     """
     rent_factor = 12 * (1 - vacancy_rate) * (1 - management_rate - maintenance_rate)
@@ -98,8 +98,8 @@ def compute_targets(
         return {"breakEven": dict(empty), "dscr125": dict(empty), "coc6": dict(empty)}
 
     taxes_estimated = annual_taxes is None
-    c = INSURANCE_RATE_OF_VALUE + (TAX_RATE_OF_VALUE if taxes_estimated else 0.0)
-    t0 = 0.0 if taxes_estimated else float(annual_taxes)
+    c = TAX_RATE_OF_VALUE if taxes_estimated else 0.0
+    t0 = float(insurance_annual) + (0.0 if taxes_estimated else float(annual_taxes))
     a = rent_factor * monthly_rent
     ads1 = annual_debt_service(1 - down_pct, interest_rate, loan_years)
 

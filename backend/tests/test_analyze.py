@@ -106,7 +106,7 @@ def test_analyze_success(monkeypatch):
     # Uses the latest tax year (2025: 4800)
     assert body["metrics"]["operatingExpenses"]["propertyTaxes"] == 4800
     assert body["metrics"]["operatingExpenses"]["taxesEstimated"] is False
-    assert body["metrics"]["capRate"] == 0.0742
+    assert body["metrics"]["capRate"] == 0.0732
     assert body["meta"]["metricsAvailable"] is True
     assert all(s["status"] == "ok" for s in body["meta"]["sources"].values())
     # All three sources succeeded → 3 billable calls tracked

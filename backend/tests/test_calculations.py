@@ -17,15 +17,23 @@ def test_effective_gross_income_custom_vacancy():
 
 def test_expenses_with_sourced_taxes():
     expenses = calc.estimate_operating_expenses(
-        egi_annual=45600, property_value=400_000, annual_taxes=4800
+        egi_annual=45600, property_value=400_000, annual_taxes=4800, unit_count=4
     )
     assert expenses["propertyTaxes"] == 4800
     assert expenses["taxesEstimated"] is False
-    assert expenses["insurance"] == pytest.approx(2000)  # 0.5% of value
+    assert expenses["insurance"] == pytest.approx(2400)  # $600/door × 4
     assert expenses["insuranceEstimated"] is True
     assert expenses["management"] == pytest.approx(4560)  # 10% of EGI
     assert expenses["maintenance"] == pytest.approx(4560)
-    assert expenses["total"] == pytest.approx(4800 + 2000 + 4560 + 4560)
+    assert expenses["total"] == pytest.approx(4800 + 2400 + 4560 + 4560)
+
+
+def test_insurance_defaults_to_single_door_when_units_unknown():
+    expenses = calc.estimate_operating_expenses(
+        egi_annual=45600, property_value=400_000, annual_taxes=4800
+    )
+    assert expenses["insurance"] == pytest.approx(600)
+    assert expenses["insuranceEstimated"] is True
 
 
 def test_expenses_estimates_taxes_when_missing():
@@ -93,9 +101,10 @@ def test_compute_metrics_full_case():
     )
     assert m["grossScheduledIncome"] == 48_000
     assert m["effectiveGrossIncome"] == pytest.approx(45_600)
-    assert m["operatingExpenses"]["total"] == pytest.approx(15_920)
-    assert m["noi"] == pytest.approx(29_680)
-    assert m["capRate"] == pytest.approx(0.0742)
+    assert m["operatingExpenses"]["insurance"] == pytest.approx(2_400)  # $600 × 4 doors
+    assert m["operatingExpenses"]["total"] == pytest.approx(16_320)
+    assert m["noi"] == pytest.approx(29_280)
+    assert m["capRate"] == pytest.approx(0.0732)
     assert m["grm"] == pytest.approx(8.3333, rel=1e-4)
     assert m["onePercentRule"]["passes"] is True
     assert m["pricePerSqft"] == pytest.approx(111.11)

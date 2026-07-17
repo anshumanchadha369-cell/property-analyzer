@@ -1,6 +1,8 @@
 import { Card, MetricTile, MoneyRow } from './ui'
 import { fmtCurrency, fmtPercent } from '../lib/format'
 import {
+  computeDeployment,
+  computeOperating,
   computeTargets,
   TARGET_COC,
   TARGET_DSCR,
@@ -183,6 +185,67 @@ export default function DealResults({
           />
         </div>
 
+        {/* Quick glimpse: same deal without a property manager */}
+        {settings.managementRate > 0
+          ? (() => {
+              const smSettings = { ...settings, managementRate: 0 }
+              const smOperating = computeOperating(
+                {
+                  price: operating.price,
+                  monthlyRent: operating.monthlyRent,
+                  unitCount,
+                  annualTaxes: ox.taxesEstimated ? null : ox.propertyTaxes,
+                  squareFootage: null,
+                },
+                smSettings,
+              )
+              const sm = smOperating
+                ? computeDeployment(operating.price, smOperating, smSettings)
+                : null
+              if (!sm) return null
+              const smCocGood = sm.cashOnCash != null && sm.cashOnCash >= RETURN_THRESHOLD
+              const smCfGood = sm.monthlyCashFlow > 0
+              return (
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/60">
+                  <span className="font-medium text-slate-700 dark:text-slate-200">
+                    If you self-manage
+                  </span>{' '}
+                  <span className="text-xs text-slate-500">
+                    (drop the {fmtPercent(settings.managementRate, 0)} PM fee, +
+                    {fmtCurrency(operating.operatingExpenses.management)}/yr)
+                  </span>
+                  <span className="mx-2 text-slate-300 dark:text-slate-700">·</span>
+                  <span className="text-slate-600 dark:text-slate-300">
+                    cash flow{' '}
+                    <span
+                      className={`font-semibold tabular-nums ${smCfGood ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+                    >
+                      {fmtCurrency(sm.monthlyCashFlow)}/mo
+                    </span>{' '}
+                    <span className="text-xs text-slate-500">
+                      (vs {fmtCurrency(deployment.monthlyCashFlow)}/mo)
+                    </span>
+                    {' · '}CoC{' '}
+                    <span
+                      className={`font-semibold tabular-nums ${smCocGood ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}
+                    >
+                      {fmtPercent(sm.cashOnCash)}
+                    </span>
+                    {' · '}DSCR{' '}
+                    <span className="font-semibold tabular-nums">
+                      {sm.dscr == null ? '—' : sm.dscr.toFixed(2)}
+                    </span>
+                  </span>
+                  <p className="mt-1 text-xs text-slate-500">
+                    Your time isn't free — tenants, turnovers, and 2am calls
+                    {unitCount ? ` across ${unitCount} doors` : ''}. But this is the ceiling
+                    self-managing buys you.
+                  </p>
+                </div>
+              )
+            })()
+          : null}
+
         {/* What it would take for this deal to clear each bar */}
         {(() => {
           const targets = computeTargets(operating, settings)
@@ -271,7 +334,7 @@ export default function DealResults({
                 estimated={ox.taxesEstimated}
               />
               <MoneyRow
-                label="− Insurance"
+                label={`− Insurance${ox.insuranceEstimated ? ' ($600/door)' : ''}`}
                 amount={-ox.insurance}
                 estimated={ox.insuranceEstimated}
               />

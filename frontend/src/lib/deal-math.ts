@@ -96,7 +96,7 @@ export function deriveBase(result: AnalysisResult, o: Overrides): BaseInputs {
 
 // ---- operating metrics (mirror of investment_metrics.compute_metrics) ----
 
-const INSURANCE_RATE_OF_VALUE = 0.005
+export const INSURANCE_PER_DOOR = 600
 const TAX_RATE_OF_VALUE = 0.01
 const ONE_PERCENT_THRESHOLD = 0.01
 
@@ -112,7 +112,7 @@ export function computeOperating(base: BaseInputs, s: DealSettings): Metrics | n
   const egi = gsi * (1 - s.vacancyRate)
   const taxesEstimated = base.annualTaxes == null
   const taxes = base.annualTaxes ?? price * TAX_RATE_OF_VALUE
-  const insurance = price * INSURANCE_RATE_OF_VALUE
+  const insurance = INSURANCE_PER_DOOR * (base.unitCount ?? 1)
   const management = egi * s.managementRate
   const maintenance = egi * s.maintenanceRate
   const totalExpenses = taxes + insurance + management + maintenance
@@ -189,8 +189,12 @@ export function computeTargets(operating: Metrics, s: DealSettings): Targets {
     return { breakEven: empty(), dscr125: empty(), coc6: empty() }
   }
   const taxesEstimated = operating.operatingExpenses.taxesEstimated
-  const c = INSURANCE_RATE_OF_VALUE + (taxesEstimated ? TAX_RATE_OF_VALUE : 0)
-  const t0 = taxesEstimated ? 0 : operating.operatingExpenses.propertyTaxes
+  // Insurance is a fixed per-door figure, so it joins the fixed-cost term;
+  // only estimated taxes remain price-proportional.
+  const c = taxesEstimated ? TAX_RATE_OF_VALUE : 0
+  const t0 =
+    operating.operatingExpenses.insurance +
+    (taxesEstimated ? 0 : operating.operatingExpenses.propertyTaxes)
   const a = rentFactor * operating.monthlyRent
   const ads1 = monthlyMortgagePayment(1 - s.downPct, s.interestRate, s.loanYears) * 12
 
