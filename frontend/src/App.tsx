@@ -57,9 +57,13 @@ export default function App() {
         setMockMode(server.mockMode ?? false)
       }
     })
-    // Pull remote saves (no-op until Supabase sync is configured).
+    // Pull remote saves (no-op until Supabase sync is configured), then push
+    // local records back up — makes sync retroactive for anything saved
+    // before it was configured, and heals gaps from offline saves.
     pullRemote().then(async (records) => {
       if (records.length && (await mergeRemote(records)) > 0) refreshSaved()
+      const locals = await listSaved()
+      locals.forEach((record) => pushRecord(record))
     })
   }, [])
 
