@@ -57,6 +57,80 @@ def break_even_months(cash_invested: float, monthly_cf: float) -> float | None:
     return cash_invested / monthly_cf
 
 
+TARGET_DSCR = 1.25
+TARGET_COC = 0.06
+INSURANCE_RATE_OF_VALUE = 0.005
+TAX_RATE_OF_VALUE = 0.01
+
+
+def compute_targets(
+    *,
+    price: float,
+    monthly_rent: float,
+    annual_taxes: float | None,  # None -> estimated at 1% of price
+    down_pct: float,
+    interest_rate: float,
+    loan_years: int,
+    closing_pct: float,
+    rehab_budget: float,
+    vacancy_rate: float,
+    management_rate: float,
+    maintenance_rate: float,
+) -> dict:
+    """Closed-form 'what would make this deal work' targets.
+
+    For each milestone (cash flow >= 0, DSCR >= 1.25, CoC >= 6%) returns the
+    max purchase price at current rent and the required rent at current price.
+    Mirrored in frontend/src/lib/deal-math.ts computeTargets — keep in sync.
+
+    Derivation: with D = 12(1-v)(1-m-mt), rent-driven NOI A = D*R,
+    price-proportional expenses cP (insurance 0.5% + taxes 1% when estimated),
+    fixed taxes T0 otherwise, and per-dollar annual debt service
+    ads1 = 12*payment(1-d, rate, years):
+      cash flow >= 0:   A - cP - T0 - ads1*P >= 0
+      DSCR >= t:        A - cP - T0 - t*ads1*P >= 0
+      CoC >= y:         A - cP - T0 - ads1*P >= y*((d+cl)P + rehab)
+    each linear in P (solve for max P) and in R (solve for required rent).
+    """
+    rent_factor = 12 * (1 - vacancy_rate) * (1 - management_rate - maintenance_rate)
+    if rent_factor <= 0 or price <= 0 or monthly_rent <= 0:
+        empty = {"maxPrice": None, "requiredRent": None}
+        return {"breakEven": dict(empty), "dscr125": dict(empty), "coc6": dict(empty)}
+
+    taxes_estimated = annual_taxes is None
+    c = INSURANCE_RATE_OF_VALUE + (TAX_RATE_OF_VALUE if taxes_estimated else 0.0)
+    t0 = 0.0 if taxes_estimated else float(annual_taxes)
+    a = rent_factor * monthly_rent
+    ads1 = annual_debt_service(1 - down_pct, interest_rate, loan_years)
+
+    def solve(debt_multiplier: float, coc_target: float) -> dict:
+        # price bound: A - T0 - coc*rehab >= P*(c + mult*ads1 + coc*(d+cl))
+        denom = c + debt_multiplier * ads1 + coc_target * (down_pct + closing_pct)
+        numer = a - t0 - coc_target * rehab_budget
+        max_price = numer / denom if denom > 0 and numer > 0 else None
+        # rent bound at current price
+        need = (
+            c * price
+            + t0
+            + debt_multiplier * ads1 * price
+            + coc_target * ((down_pct + closing_pct) * price + rehab_budget)
+        )
+        required_rent = need / rent_factor if need > 0 else None
+        return {
+            # conservative rounding: floor the price, ceil the rent
+            "maxPrice": None if max_price is None else float(int(max_price // 500) * 500),
+            "requiredRent": None
+            if required_rent is None
+            else float(-int(-required_rent // 5) * 5),
+        }
+
+    return {
+        "breakEven": solve(1.0, 0.0),
+        "dscr125": solve(TARGET_DSCR, 0.0),
+        "coc6": solve(1.0, TARGET_COC),
+    }
+
+
 def compute_deployment(
     *,
     price: float,

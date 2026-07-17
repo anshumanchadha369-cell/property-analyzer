@@ -93,3 +93,104 @@ def test_compute_deployment_without_available_cash():
 def test_compute_deployment_rejects_bad_price():
     with pytest.raises(ValueError):
         cd.compute_deployment(price=0, noi_annual=10_000, monthly_opex=500)
+
+
+# ---- targets (round-trip: plug the target back in, milestone must hold) ----
+
+LAKEWOOD = dict(
+    price=674_999,
+    monthly_rent=4_950,
+    annual_taxes=5_737.0,
+    down_pct=0.25,
+    interest_rate=0.07,
+    loan_years=30,
+    closing_pct=0.03,
+    rehab_budget=0.0,
+    vacancy_rate=0.05,
+    management_rate=0.10,
+    maintenance_rate=0.10,
+)
+
+
+def _deployment_at(price: float, monthly_rent: float, taxes: float | None):
+    from app.calculations import investment_metrics as calc
+
+    metrics = calc.compute_metrics(
+        price=price,
+        monthly_rent=monthly_rent,
+        annual_taxes=taxes,
+        vacancy_rate=LAKEWOOD["vacancy_rate"],
+        management_rate=LAKEWOOD["management_rate"],
+        maintenance_rate=LAKEWOOD["maintenance_rate"],
+    )
+    return cd.compute_deployment(
+        price=price,
+        noi_annual=metrics["noi"],
+        monthly_opex=metrics["operatingExpenses"]["total"] / 12,
+        down_pct=LAKEWOOD["down_pct"],
+        interest_rate=LAKEWOOD["interest_rate"],
+        loan_years=LAKEWOOD["loan_years"],
+        closing_pct=LAKEWOOD["closing_pct"],
+        rehab_budget=LAKEWOOD["rehab_budget"],
+    )
+
+
+def test_targets_lakewood_deal_is_underwater_at_asking():
+    targets = cd.compute_targets(**LAKEWOOD)
+    # All three max prices must be below asking for this deal
+    assert targets["breakEven"]["maxPrice"] < LAKEWOOD["price"]
+    assert targets["dscr125"]["maxPrice"] < targets["breakEven"]["maxPrice"]
+    assert targets["coc6"]["maxPrice"] < targets["breakEven"]["maxPrice"]
+    # And required rents must exceed current rent
+    for key in ("breakEven", "dscr125", "coc6"):
+        assert targets[key]["requiredRent"] > LAKEWOOD["monthly_rent"]
+
+
+def test_target_price_round_trip_break_even():
+    targets = cd.compute_targets(**LAKEWOOD)
+    result = _deployment_at(
+        targets["breakEven"]["maxPrice"], LAKEWOOD["monthly_rent"], LAKEWOOD["annual_taxes"]
+    )
+    assert result["annualCashFlow"] >= 0
+    assert result["annualCashFlow"] < 600  # tight: floored price sits just under the bound
+
+
+def test_target_price_round_trip_dscr():
+    targets = cd.compute_targets(**LAKEWOOD)
+    result = _deployment_at(
+        targets["dscr125"]["maxPrice"], LAKEWOOD["monthly_rent"], LAKEWOOD["annual_taxes"]
+    )
+    assert result["dscr"] >= 1.25
+    assert result["dscr"] < 1.26
+
+
+def test_target_price_round_trip_coc6():
+    targets = cd.compute_targets(**LAKEWOOD)
+    result = _deployment_at(
+        targets["coc6"]["maxPrice"], LAKEWOOD["monthly_rent"], LAKEWOOD["annual_taxes"]
+    )
+    assert result["cashOnCash"] >= 0.06
+    assert result["cashOnCash"] < 0.062
+
+
+def test_target_rent_round_trip_coc6():
+    targets = cd.compute_targets(**LAKEWOOD)
+    result = _deployment_at(
+        LAKEWOOD["price"], targets["coc6"]["requiredRent"], LAKEWOOD["annual_taxes"]
+    )
+    assert result["cashOnCash"] >= 0.06
+    assert result["cashOnCash"] < 0.062
+
+
+def test_targets_with_estimated_taxes_round_trip():
+    params = {**LAKEWOOD, "annual_taxes": None}
+    targets = cd.compute_targets(**params)
+    result = _deployment_at(targets["coc6"]["maxPrice"], LAKEWOOD["monthly_rent"], None)
+    assert result["cashOnCash"] >= 0.06
+    assert result["cashOnCash"] < 0.062
+
+
+def test_targets_degenerate_rates_return_none():
+    params = {**LAKEWOOD, "management_rate": 0.6, "maintenance_rate": 0.5}
+    targets = cd.compute_targets(**params)
+    assert targets["coc6"] == {"maxPrice": None, "requiredRent": None}

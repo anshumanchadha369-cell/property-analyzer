@@ -270,7 +270,7 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
             onChange={(n) => set({ vacancyRate: n / 100 })}
           />
           <SliderRow
-            label="Management"
+            label="Property management"
             value={settings.managementRate * 100}
             display={`${Math.round(settings.managementRate * 100)}%`}
             min={0}
@@ -279,7 +279,7 @@ export default function DealInputs({ settings, onSettings, overrides, onOverride
             onChange={(n) => set({ managementRate: n / 100 })}
           />
           <SliderRow
-            label="Maintenance"
+            label="Maintenance reserve"
             value={settings.maintenanceRate * 100}
             display={`${Math.round(settings.maintenanceRate * 100)}%`}
             min={0}

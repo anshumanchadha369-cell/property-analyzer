@@ -1,11 +1,89 @@
 import { Card, MetricTile, MoneyRow } from './ui'
 import { fmtCurrency, fmtPercent } from '../lib/format'
-import type { DealSettings, Deployment } from '../lib/deal-math'
+import {
+  computeTargets,
+  TARGET_COC,
+  TARGET_DSCR,
+  type DealSettings,
+  type Deployment,
+  type TargetPair,
+} from '../lib/deal-math'
 import type { Metrics } from '../types/analysis'
 
 // v1 product rule: returns below 6% are red, at/above green.
 const RETURN_THRESHOLD = 0.06
 const THIN_CASH_FLOOR = 5000
+
+function TargetRow({
+  label,
+  sub,
+  met,
+  pair,
+  currentPrice,
+  currentRent,
+  unitCount,
+}: {
+  label: string
+  sub: string
+  met: boolean
+  pair: TargetPair
+  currentPrice: number
+  currentRent: number
+  unitCount: number | null
+}) {
+  if (met) {
+    return (
+      <div className="flex items-baseline gap-2 py-1.5">
+        <span className="text-emerald-600 dark:text-emerald-400">✓</span>
+        <span className="text-sm text-slate-600 dark:text-slate-300">{label}</span>
+        <span className="text-xs text-emerald-600 dark:text-emerald-400">already met</span>
+      </div>
+    )
+  }
+  const priceDelta =
+    pair.maxPrice != null ? ((pair.maxPrice - currentPrice) / currentPrice) * 100 : null
+  const rentDelta =
+    pair.requiredRent != null ? ((pair.requiredRent - currentRent) / currentRent) * 100 : null
+  return (
+    <div className="py-1.5">
+      <p className="text-sm font-medium text-slate-700 dark:text-slate-200">
+        {label} <span className="text-xs font-normal text-slate-500">({sub})</span>
+      </p>
+      <p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+        {pair.maxPrice != null ? (
+          <>
+            price ≤{' '}
+            <span className="font-semibold tabular-nums">{fmtCurrency(pair.maxPrice)}</span>
+            <span className="text-xs text-slate-500">
+              {' '}
+              ({priceDelta! >= 0 ? '+' : ''}
+              {priceDelta!.toFixed(0)}% vs current)
+            </span>
+          </>
+        ) : (
+          'no viable price at these assumptions'
+        )}
+        {'  —  or  '}
+        {pair.requiredRent != null ? (
+          <>
+            rent ≥{' '}
+            <span className="font-semibold tabular-nums">
+              {fmtCurrency(pair.requiredRent)}/mo
+            </span>
+            <span className="text-xs text-slate-500">
+              {' '}
+              ({rentDelta! >= 0 ? '+' : ''}
+              {rentDelta!.toFixed(0)}%
+              {unitCount ? ` · ≈ ${fmtCurrency(pair.requiredRent / unitCount)}/unit` : ''})
+            </span>
+          </>
+        ) : (
+          'no viable rent'
+        )}
+      </p>
+    </div>
+  )
+}
 
 function breakEvenDisplay(months: number | null): string {
   if (months == null) return 'Never'
@@ -17,10 +95,12 @@ export default function DealResults({
   deployment,
   operating,
   settings,
+  unitCount = null,
 }: {
   deployment: Deployment | null
   operating: Metrics | null
   settings: DealSettings
+  unitCount?: number | null
 }) {
   if (!deployment || !operating) {
     return (
@@ -103,6 +183,68 @@ export default function DealResults({
           />
         </div>
 
+        {/* What it would take for this deal to clear each bar */}
+        {(() => {
+          const targets = computeTargets(operating, settings)
+          const metBreakEven = deployment.monthlyCashFlow > 0
+          const metDscr = deployment.dscr != null && deployment.dscr >= TARGET_DSCR
+          const metCoc = coc != null && coc >= TARGET_COC
+          const allMet = metBreakEven && metDscr && metCoc
+          return (
+            <div
+              className={`mt-4 rounded-lg border p-3 ${
+                allMet
+                  ? 'border-emerald-500/40 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-950/20'
+                  : 'border-sky-500/40 bg-sky-50 dark:border-sky-500/30 dark:bg-sky-950/20'
+              }`}
+            >
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                What would make this deal work
+              </h3>
+              {allMet ? (
+                <p className="mt-1 text-sm text-emerald-700 dark:text-emerald-300">
+                  ✓ Clears break-even, DSCR {TARGET_DSCR}, and {TARGET_COC * 100}% cash-on-cash at
+                  the current inputs.
+                </p>
+              ) : (
+                <div className="mt-1 divide-y divide-slate-200/60 dark:divide-slate-800/60">
+                  <TargetRow
+                    label="Break-even cash flow"
+                    sub="stops losing money monthly"
+                    met={metBreakEven}
+                    pair={targets.breakEven}
+                    currentPrice={operating.price}
+                    currentRent={operating.monthlyRent}
+                    unitCount={unitCount}
+                  />
+                  <TargetRow
+                    label={`Lender-ready (DSCR ≥ ${TARGET_DSCR})`}
+                    sub="rents cover the mortgage with margin"
+                    met={metDscr}
+                    pair={targets.dscr125}
+                    currentPrice={operating.price}
+                    currentRent={operating.monthlyRent}
+                    unitCount={unitCount}
+                  />
+                  <TargetRow
+                    label={`Your ${TARGET_COC * 100}% cash-on-cash bar`}
+                    sub="cash deployed here beats the threshold"
+                    met={metCoc}
+                    pair={targets.coc6}
+                    currentPrice={operating.price}
+                    currentRent={operating.monthlyRent}
+                    unitCount={unitCount}
+                  />
+                </div>
+              )}
+              <p className="mt-2 text-xs text-slate-500">
+                Each line holds everything else constant: the price target assumes today's rent;
+                the rent target assumes today's price. Try them in the overrides above.
+              </p>
+            </div>
+          )
+        })()}
+
         {/* The full derivation, top to bottom — this is where the mortgage enters. */}
         <div className="mt-6 grid gap-6 lg:grid-cols-2">
           <div>
@@ -134,11 +276,11 @@ export default function DealResults({
                 estimated={ox.insuranceEstimated}
               />
               <MoneyRow
-                label={`− Management (${fmtPercent(settings.managementRate, 0)} of EGI)`}
+                label={`− Property management (${fmtPercent(settings.managementRate, 0)} of EGI)`}
                 amount={-ox.management}
               />
               <MoneyRow
-                label={`− Maintenance (${fmtPercent(settings.maintenanceRate, 0)} of EGI)`}
+                label={`− Maintenance reserve (${fmtPercent(settings.maintenanceRate, 0)} of EGI)`}
                 amount={-ox.maintenance}
               />
               {ox.hoa > 0 ? <MoneyRow label="− HOA" amount={-ox.hoa} /> : null}

@@ -95,7 +95,12 @@ export default function AnalysisView({
               : null,
         }}
       />
-      <DealResults deployment={deployment} operating={operating} settings={settings} />
+      <DealResults
+        deployment={deployment}
+        operating={operating}
+        settings={settings}
+        unitCount={base.unitCount}
+      />
       <AnalysisDashboard
         result={result}
         metrics={operating ?? result.metrics}

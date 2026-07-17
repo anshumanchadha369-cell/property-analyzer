@@ -166,6 +166,55 @@ export interface Deployment {
   cocPremium: number | null
 }
 
+export interface TargetPair {
+  maxPrice: number | null
+  requiredRent: number | null
+}
+
+export interface Targets {
+  breakEven: TargetPair
+  dscr125: TargetPair
+  coc6: TargetPair
+}
+
+export const TARGET_DSCR = 1.25
+export const TARGET_COC = 0.06
+
+// Closed-form "what would make this deal work" targets. Mirror of
+// backend/app/calculations/cash_deployment.py compute_targets — keep in sync.
+export function computeTargets(operating: Metrics, s: DealSettings): Targets {
+  const rentFactor = 12 * (1 - s.vacancyRate) * (1 - s.managementRate - s.maintenanceRate)
+  const empty = (): TargetPair => ({ maxPrice: null, requiredRent: null })
+  if (rentFactor <= 0 || operating.price <= 0 || operating.monthlyRent <= 0) {
+    return { breakEven: empty(), dscr125: empty(), coc6: empty() }
+  }
+  const taxesEstimated = operating.operatingExpenses.taxesEstimated
+  const c = INSURANCE_RATE_OF_VALUE + (taxesEstimated ? TAX_RATE_OF_VALUE : 0)
+  const t0 = taxesEstimated ? 0 : operating.operatingExpenses.propertyTaxes
+  const a = rentFactor * operating.monthlyRent
+  const ads1 = monthlyMortgagePayment(1 - s.downPct, s.interestRate, s.loanYears) * 12
+
+  const solve = (debtMultiplier: number, cocTarget: number): TargetPair => {
+    const denom = c + debtMultiplier * ads1 + cocTarget * (s.downPct + s.closingPct)
+    const numer = a - t0 - cocTarget * s.rehabBudget
+    const maxPrice =
+      denom > 0 && numer > 0 ? Math.floor(numer / denom / 500) * 500 : null
+    const need =
+      c * operating.price +
+      t0 +
+      debtMultiplier * ads1 * operating.price +
+      cocTarget * ((s.downPct + s.closingPct) * operating.price + s.rehabBudget)
+    const requiredRent = need > 0 ? Math.ceil(need / rentFactor / 5) * 5 : null
+    return { maxPrice, requiredRent }
+  }
+
+  return {
+    breakEven: solve(1, 0),
+    dscr125: solve(TARGET_DSCR, 0),
+    coc6: solve(1, TARGET_COC),
+  }
+}
+
 export function monthlyMortgagePayment(loan: number, annualRate: number, years: number): number {
   const n = years * 12
   if (n <= 0 || loan <= 0) return 0
