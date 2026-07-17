@@ -1,7 +1,7 @@
 import type { AnalysisResult, Metrics, SourceStatus } from '../types/analysis'
 import { fmtCurrency, fmtDate, fmtNumber, fmtPercent } from '../lib/format'
 import MarketContext from './MarketContext'
-import { Card, LabelValue, MetricTile, MoneyRow } from './ui'
+import { Card, LabelValue, MetricTile } from './ui'
 
 // v1 product rule: returns below 6% are flagged red, at/above are green.
 const RETURN_THRESHOLD = 0.06
@@ -160,7 +160,7 @@ export default function AnalysisDashboard({
       </div>
 
       <Card
-        title="Investment Metrics"
+        title="Property Metrics (unlevered)"
         right={
           <span className="text-xs text-slate-500">
             {overridesActive ? (
@@ -174,6 +174,15 @@ export default function AnalysisDashboard({
       >
         {metrics ? (
           <>
+            <p className="mb-4 text-xs text-slate-500">
+              These deliberately ignore the mortgage — they measure the property itself, for
+              comparing deals regardless of how they're financed. Your financed returns (cash flow,
+              cash-on-cash) are in{' '}
+              <span className="font-medium text-slate-600 dark:text-slate-300">
+                Returns & Cash Flow
+              </span>{' '}
+              above, where the full math is shown.
+            </p>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
               <MetricTile
                 label="Cap Rate"
@@ -185,62 +194,20 @@ export default function AnalysisDashboard({
                       ? 'good'
                       : 'bad'
                 }
-                sub="NOI / price"
+                sub={`NOI ÷ price: ${fmtCurrency(metrics.noi)} ÷ ${fmtCurrency(metrics.price)}`}
               />
-              <MetricTile label="NOI" value={fmtCurrency(metrics.noi)} sub="annual" />
-              <MetricTile label="GRM" value={fmtNumber(metrics.grm, 1)} sub="price / gross rent" />
+              <MetricTile
+                label="NOI"
+                value={fmtCurrency(metrics.noi)}
+                sub="annual, before debt service — built in Returns above"
+              />
+              <MetricTile label="GRM" value={fmtNumber(metrics.grm, 1)} sub="price ÷ gross rent" />
               <MetricTile
                 label="1% Rule"
                 value={metrics.onePercentRule.passes ? 'Pass' : 'Fail'}
                 flag={metrics.onePercentRule.passes ? 'good' : 'bad'}
-                sub={`rent/price ${fmtPercent(metrics.onePercentRule.ratio)}`}
+                sub={`rent ÷ price = ${fmtPercent(metrics.onePercentRule.ratio)}`}
               />
-            </div>
-
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Income (annual)
-                </h3>
-                <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                  <MoneyRow label="Gross scheduled income" amount={metrics.grossScheduledIncome} />
-                  <MoneyRow
-                    label={`Vacancy (${fmtPercent(metrics.vacancyRate, 0)})`}
-                    amount={-(metrics.grossScheduledIncome - metrics.effectiveGrossIncome)}
-                  />
-                  <MoneyRow label="Effective gross income" amount={metrics.effectiveGrossIncome} strong />
-                </div>
-              </div>
-              <div>
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Operating Expenses (annual)
-                </h3>
-                <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
-                  <MoneyRow
-                    label="Property taxes"
-                    amount={metrics.operatingExpenses.propertyTaxes}
-                    estimated={metrics.operatingExpenses.taxesEstimated}
-                  />
-                  <MoneyRow
-                    label="Insurance"
-                    amount={metrics.operatingExpenses.insurance}
-                    estimated={metrics.operatingExpenses.insuranceEstimated}
-                  />
-                  <MoneyRow
-                    label={`Management (${fmtPercent(metrics.operatingExpenses.management / Math.max(metrics.effectiveGrossIncome, 1), 0)})`}
-                    amount={metrics.operatingExpenses.management}
-                  />
-                  <MoneyRow
-                    label={`Maintenance (${fmtPercent(metrics.operatingExpenses.maintenance / Math.max(metrics.effectiveGrossIncome, 1), 0)})`}
-                    amount={metrics.operatingExpenses.maintenance}
-                  />
-                  {metrics.operatingExpenses.hoa > 0 ? (
-                    <MoneyRow label="HOA" amount={metrics.operatingExpenses.hoa} />
-                  ) : null}
-                  <MoneyRow label="Total expenses" amount={metrics.operatingExpenses.total} strong />
-                  <MoneyRow label="Net operating income" amount={metrics.noi} strong />
-                </div>
-              </div>
             </div>
           </>
         ) : (

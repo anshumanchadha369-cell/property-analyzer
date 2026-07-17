@@ -24,7 +24,7 @@ export default function DealResults({
 }) {
   if (!deployment || !operating) {
     return (
-      <Card title="Cash Deployment">
+      <Card title="Returns & Cash Flow">
         <p className="text-sm text-slate-500">
           Need a purchase price and monthly rent to run the numbers — the fetched estimates are
           missing. Enter them as manual overrides above.
@@ -57,29 +57,33 @@ export default function DealResults({
           : 'ok'
 
   const premium = deployment.cocPremium
+  const ox = operating.operatingExpenses
+  const vacancyAmount = operating.grossScheduledIncome - operating.effectiveGrossIncome
 
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
+    <div className="space-y-6">
       <Card
-        title="Returns (with financing)"
+        title="Returns & Cash Flow (with financing)"
         right={
           <span className="text-xs text-slate-500">
-            {fmtCurrency(deployment.loanAmount)} loan · {fmtCurrency(deployment.monthlyPI)}/mo P&I
+            {fmtCurrency(deployment.loanAmount)} loan ·{' '}
+            {(settings.interestRate * 100).toFixed(2).replace(/\.?0+$/, '')}% / {settings.loanYears}
+            yr · {fmtCurrency(deployment.monthlyPI)}/mo P&I
           </span>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <MetricTile
             label="Cash-on-Cash"
             value={fmtPercent(coc)}
             flag={cocFlag}
-            sub={`annual cash flow / ${fmtCurrency(deployment.cashInvested)} invested`}
+            sub="derivation below"
           />
           <MetricTile
             label="DSCR"
             value={deployment.dscr == null ? '—' : deployment.dscr.toFixed(2)}
             flag={dscrFlag}
-            sub="NOI / debt service · lenders want ≥ 1.25"
+            sub={`NOI ÷ debt service (${fmtCurrency(operating.noi)} ÷ ${fmtCurrency(deployment.annualDebtService)}) · lenders want ≥ 1.25`}
           />
           <MetricTile
             label="Cash Flow"
@@ -91,8 +95,142 @@ export default function DealResults({
             label="Break-even"
             value={breakEvenDisplay(deployment.breakEvenMonths)}
             flag={beFlag}
-            sub="cash flow recovers cash invested"
+            sub={
+              deployment.breakEvenMonths == null
+                ? 'negative cash flow never recovers the cash invested'
+                : `${fmtCurrency(deployment.cashInvested)} invested ÷ ${fmtCurrency(deployment.monthlyCashFlow)}/mo`
+            }
           />
+        </div>
+
+        {/* The full derivation, top to bottom — this is where the mortgage enters. */}
+        <div className="mt-6 grid gap-6 lg:grid-cols-2">
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Cash flow, built step by step (annual)
+            </h3>
+            <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
+              <MoneyRow
+                label={`Gross scheduled income (${fmtCurrency(operating.monthlyRent)}/mo × 12)`}
+                amount={operating.grossScheduledIncome}
+              />
+              <MoneyRow
+                label={`− Vacancy (${fmtPercent(operating.vacancyRate, 0)})`}
+                amount={-vacancyAmount}
+              />
+              <MoneyRow
+                label="= Effective gross income"
+                amount={operating.effectiveGrossIncome}
+                strong
+              />
+              <MoneyRow
+                label="− Property taxes"
+                amount={-ox.propertyTaxes}
+                estimated={ox.taxesEstimated}
+              />
+              <MoneyRow
+                label="− Insurance"
+                amount={-ox.insurance}
+                estimated={ox.insuranceEstimated}
+              />
+              <MoneyRow
+                label={`− Management (${fmtPercent(settings.managementRate, 0)} of EGI)`}
+                amount={-ox.management}
+              />
+              <MoneyRow
+                label={`− Maintenance (${fmtPercent(settings.maintenanceRate, 0)} of EGI)`}
+                amount={-ox.maintenance}
+              />
+              {ox.hoa > 0 ? <MoneyRow label="− HOA" amount={-ox.hoa} /> : null}
+              <MoneyRow label="= Net operating income (NOI)" amount={operating.noi} strong />
+              <MoneyRow
+                label={`− Debt service (${fmtCurrency(deployment.monthlyPI)}/mo × 12)`}
+                amount={-deployment.annualDebtService}
+              />
+              <MoneyRow
+                label="= Annual cash flow"
+                amount={deployment.annualCashFlow}
+                strong
+                negative={deployment.annualCashFlow < 0}
+              />
+              <div className="flex justify-between py-1.5 text-xs text-slate-500">
+                <span>monthly</span>
+                <span className="tabular-nums">{fmtCurrency(deployment.monthlyCashFlow)}/mo</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Cash-on-cash, step by step
+            </h3>
+            <div className="divide-y divide-slate-200 text-sm dark:divide-slate-800">
+              <MoneyRow
+                label={`Down payment (${Math.round(settings.downPct * 100)}% of ${fmtCurrency(operating.price)})`}
+                amount={deployment.downPayment}
+              />
+              <MoneyRow
+                label={`+ Closing costs (${(settings.closingPct * 100).toFixed(1)}%)`}
+                amount={deployment.closingCosts}
+                estimated
+              />
+              {deployment.rehabBudget > 0 ? (
+                <MoneyRow label="+ Rehab budget" amount={deployment.rehabBudget} />
+              ) : null}
+              <MoneyRow label="= Cash invested" amount={deployment.cashInvested} strong />
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm dark:border-slate-800 dark:bg-slate-950/60">
+              <p className="text-slate-600 dark:text-slate-300">
+                Cash-on-cash = annual cash flow ÷ cash invested
+              </p>
+              <p className="mt-1 font-medium tabular-nums text-slate-900 dark:text-slate-100">
+                {fmtCurrency(deployment.annualCashFlow)} ÷ {fmtCurrency(deployment.cashInvested)} ={' '}
+                <span
+                  className={
+                    cocFlag === 'good'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-red-600 dark:text-red-400'
+                  }
+                >
+                  {fmtPercent(coc)}
+                </span>
+              </p>
+              <p className="mt-2 text-xs text-slate-500">
+                Reserve ({fmtCurrency(deployment.reserve)}) is cash you must bring but stays yours —
+                it's excluded from the return denominator. Full allocation in Cash Deployment below.
+              </p>
+            </div>
+            <div
+              className={`mt-3 rounded-lg border p-3 text-xs leading-relaxed ${
+                premium != null && premium < 0
+                  ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-950/20 dark:text-red-300'
+                  : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400'
+              }`}
+            >
+              {coc == null ? (
+                'Cash-on-cash unavailable.'
+              ) : (
+                <>
+                  {fmtCurrency(deployment.cashInvested)} deployed here returns{' '}
+                  <span className="font-semibold">{fmtPercent(coc)}</span> vs{' '}
+                  {fmtPercent(settings.hysaRate)} in a HYSA (
+                  {fmtCurrency(deployment.hysaAnnualYield)}/yr).{' '}
+                  {premium != null && premium >= 0 ? (
+                    <>
+                      Premium for the risk:{' '}
+                      <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                        +{(premium * 100).toFixed(1)} pts
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-semibold">
+                      The HYSA beats this deal — no risk premium.
+                    </span>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </Card>
 
@@ -141,35 +279,6 @@ export default function DealResults({
             <p className="py-1.5 text-xs text-slate-500">
               Enter your available cash to see what's left after this deal.
             </p>
-          )}
-        </div>
-
-        <div
-          className={`mt-4 rounded-lg border p-3 text-xs leading-relaxed ${
-            premium != null && premium < 0
-              ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-500/30 dark:bg-red-950/20 dark:text-red-300'
-              : 'border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400'
-          }`}
-        >
-          {coc == null ? (
-            'Cash-on-cash unavailable.'
-          ) : (
-            <>
-              {fmtCurrency(deployment.cashInvested)} deployed here returns{' '}
-              <span className="font-semibold">{fmtPercent(coc)}</span> vs{' '}
-              {fmtPercent(settings.hysaRate)} in a HYSA ({fmtCurrency(deployment.hysaAnnualYield)}
-              /yr).{' '}
-              {premium != null && premium >= 0 ? (
-                <>
-                  Premium for the risk:{' '}
-                  <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    +{(premium * 100).toFixed(1)} pts
-                  </span>
-                </>
-              ) : (
-                <span className="font-semibold">The HYSA beats this deal — no risk premium.</span>
-              )}
-            </>
           )}
         </div>
       </Card>
