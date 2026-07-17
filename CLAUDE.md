@@ -30,7 +30,7 @@ RentCast usage/cost tracking: no usage API exists, so calls are tallied client-s
 
 Known data limitation (found in first live run): RentCast matches plain street addresses to a single record — a multi-unit building listed as "#D1-D6" came back as a Single Family 2/1. Phase 2 must include manual overrides (price, rent, unit count) so listing knowledge can correct AVM mismatches.
 
-ALL v1 PHASES COMPLETE (2026-07-08). Remaining backlog: Walk Score + GreatSchools + FRED/BLS integrations (same source pattern as hud.py/census.py — add client, fixture tests, MarketContext section, env key); Supabase sync activation (user-gated); Nominatim address autocomplete; portfolio-level features (v2).
+ALL v1 PHASES COMPLETE (2026-07-08). Supabase sync ACTIVATED 2026-07-16 (project ref dydpgtzneducfvpkscyu, table with RLS enabled, service key on Render only). Known sync limitation: deletes don't tombstone — a device that deletes removes the cloud row, but another device holding the record re-uploads it on next open (push-on-load). Fix = deleted_at tombstones if it ever annoys. Remaining backlog: Walk Score + GreatSchools + FRED/BLS integrations (same source pattern as hud.py/census.py — add client, fixture tests, MarketContext section, env key); Supabase sync activation (user-gated); Nominatim address autocomplete; portfolio-level features (v2).
 
 Incremental, working-to-working phases — each ends deployed and usable:
 0. Infra skeleton (done when: frontend on Vercel talks to backend on Render) — DONE
