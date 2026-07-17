@@ -28,3 +28,7 @@ FEMA_NFHL_BASE_URL = os.environ.get(
 
 # Extra host allowed for /parse-url (mock-mode E2E only, e.g. "localhost").
 PARSE_URL_EXTRA_HOST = os.environ.get("PARSE_URL_EXTRA_HOST", "")
+
+# Single-user access gate. When set, all routes except /health require the
+# X-App-Key header to match. Unset -> open (local dev / tests).
+APP_PASSWORD = os.environ.get("APP_PASSWORD", "")

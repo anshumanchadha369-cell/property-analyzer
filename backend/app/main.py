@@ -1,10 +1,11 @@
 import os
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import config  # noqa: F401  (loads .env before reading os.environ)
 from app.routers import analyses, analyze, parse_url
+from app.security import require_app_password
 
 app = FastAPI(title="Property Analyzer API", version="0.2.0")
 
@@ -23,9 +24,10 @@ app.add_middleware(
 )
 
 
-app.include_router(analyze.router)
-app.include_router(analyses.router)
-app.include_router(parse_url.router)
+GATE = [Depends(require_app_password)]
+app.include_router(analyze.router, dependencies=GATE)
+app.include_router(analyses.router, dependencies=GATE)
+app.include_router(parse_url.router, dependencies=GATE)
 
 
 @app.get("/health")

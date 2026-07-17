@@ -13,6 +13,10 @@ Personal web app: quick investment analysis for multi-unit (2-4 unit) properties
 
 RentCast is primary (property details, AVM, rent estimates, comps — 50 calls/mo free). Supplements: HUD FMR, Census ACS, FEMA NFHL flood, FRED, BLS, Walk Score, GreatSchools, Nominatim (address autocomplete). Listing-URL parsing is done in-house (JSON-LD / Open Graph extraction, HTML fallback) — no scraper APIs. Prefer official APIs and pay-as-you-go over subscriptions.
 
+## Security model
+
+Single-user gate: APP_PASSWORD env (set on Render, 2026-07-16) — all routes except /health require matching X-App-Key header (timing-safe, app/security.py as router dependency so 401s carry CORS headers). Frontend stores the password per device (localStorage 'app-key'), prompts via PasswordGate on any 401. Unset password = open (local dev/mock/tests). Secrets never ship to the browser; Supabase table has RLS on with service-key-only access; /parse-url is host-allowlisted.
+
 ## Product rules
 
 - 6% threshold on cap rate and cash-on-cash: red below, green at/above (hardcoded in v1).

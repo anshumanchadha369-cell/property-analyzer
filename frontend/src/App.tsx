@@ -3,9 +3,10 @@ import AddressForm from './components/AddressForm'
 import AnalysisView, { type SavePayload } from './components/AnalysisView'
 import ComparisonView from './components/ComparisonView'
 import LoadingCard from './components/LoadingCard'
+import PasswordGate from './components/PasswordGate'
 import SavedList from './components/SavedList'
 import UsageBadge from './components/UsageBadge'
-import { analyzeAddress, fetchUsage, parseListingUrl } from './lib/api'
+import { analyzeAddress, fetchUsage, getAppKey, parseListingUrl } from './lib/api'
 import { EMPTY_OVERRIDES, type DealSettings, type Overrides } from './lib/deal-math'
 import {
   deleteSaved,
@@ -43,10 +44,17 @@ export default function App() {
   const [usage, setUsage] = useState<UsageState>(() => loadUsage())
   const [mockMode, setMockMode] = useState(false)
   const [theme, setThemeState] = useState<Theme>(() => currentTheme())
+  const [locked, setLocked] = useState(false)
 
   async function refreshSaved() {
     setSaved(await listSaved())
   }
+
+  useEffect(() => {
+    const onUnauthorized = () => setLocked(true)
+    window.addEventListener('app-unauthorized', onUnauthorized)
+    return () => window.removeEventListener('app-unauthorized', onUnauthorized)
+  }, [])
 
   useEffect(() => {
     refreshSaved()
@@ -194,6 +202,7 @@ export default function App() {
 
   return (
     <main className="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      {locked ? <PasswordGate hadKey={getAppKey() != null} /> : null}
       <div className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <header className="mb-6">
           <div className="flex flex-wrap items-start justify-between gap-3">

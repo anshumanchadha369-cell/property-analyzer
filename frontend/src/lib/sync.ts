@@ -1,7 +1,7 @@
 // Background sync with the backend's /analyses endpoints (Supabase-backed
 // when configured). Every call is fire-and-forget from the UI's perspective:
 // failures and "not configured" both leave the app fully functional locally.
-import { API_URL } from './api'
+import { apiFetch } from './api'
 import type { SavedAnalysis } from './db'
 
 interface RemoteRecord {
@@ -35,7 +35,7 @@ function fromRemote(remote: RemoteRecord): SavedAnalysis {
 /** Pull all remote records. Returns [] when sync is unconfigured or down. */
 export async function pullRemote(): Promise<SavedAnalysis[]> {
   try {
-    const res = await fetch(`${API_URL}/analyses`)
+    const res = await apiFetch('/analyses')
     if (!res.ok) return []
     const body = await res.json()
     if (!body.configured || !Array.isArray(body.records)) return []
@@ -47,7 +47,7 @@ export async function pullRemote(): Promise<SavedAnalysis[]> {
 
 export async function pushRecord(record: SavedAnalysis): Promise<void> {
   try {
-    await fetch(`${API_URL}/analyses/${record.id}`, {
+    await apiFetch(`/analyses/${record.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(toRemote(record)),
@@ -59,7 +59,7 @@ export async function pushRecord(record: SavedAnalysis): Promise<void> {
 
 export async function pushDelete(id: string): Promise<void> {
   try {
-    await fetch(`${API_URL}/analyses/${id}`, { method: 'DELETE' })
+    await apiFetch(`/analyses/${id}`, { method: 'DELETE' })
   } catch {
     // local-first: sync failures are silent
   }
